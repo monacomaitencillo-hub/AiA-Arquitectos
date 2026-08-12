@@ -1,0 +1,62 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    function selfDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isActive() {
+      return isAuthed() && selfDoc().disabled == false;
+    }
+
+    function isAdmin() {
+      return isActive() && selfDoc().role == 'admin';
+    }
+
+    function isEditorOrAdmin() {
+      return isActive() && selfDoc().role in ['admin', 'editor'];
+    }
+
+    // ── Users collection ────────────────────────────────────────────────────
+    match /users/{userId} {
+      // Any active user can read the users list (needed for access management UI)
+      allow read: if isActive();
+      // Only admins write; user creation is done via backend (Admin SDK)
+      allow write: if isAdmin();
+    }
+
+    // ── Sections collection ─────────────────────────────────────────────────
+    match /sections/{sectionId} {
+      allow read: if isActive();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ── Pages collection ────────────────────────────────────────────────────
+    match /pages/{pageId} {
+      function sectionData() {
+        return get(/databases/$(database)/documents/sections/$(resource.data.sectionId)).data;
+      }
+      function newSectionData() {
+        return get(/databases/$(database)/documents/sections/$(request.resource.data.sectionId)).data;
+      }
+
+      // Admin sees everything; others only see pages in accessible sections
+      allow read: if isAdmin() ||
+        (isActive() && request.auth.uid in sectionData().allowedUids);
+
+      // Admin can do anything; editors can create/update in allowed sections
+      allow create: if isAdmin() ||
+        (isEditorOrAdmin() && request.auth.uid in newSectionData().allowedUids);
+
+      allow update: if isAdmin() ||
+        (isEditorOrAdmin() && request.auth.uid in sectionData().allowedUids);
+
+      allow delete: if isAdmin();
+    }
+  }
+}

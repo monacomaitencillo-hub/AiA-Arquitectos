@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AIA Wiki</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- Loading overlay -->
+  <div id="loading-overlay">
+    <div class="spinner"></div>
+    <span>Cargando...</span>
+  </div>
+
+  <!-- ── HEADER ──────────────────────────────────────────────────────────── -->
+  <header id="app-header" class="hidden">
+    <button id="hamburger-btn" title="Menú">☰</button>
+    <span class="header-logo">AIA Wiki</span>
+    <div class="header-spacer"></div>
+    <span id="header-user-name"></span>
+    <button id="logout-btn">Cerrar sesión</button>
+  </header>
+
+  <!-- ── APP BODY ───────────────────────────────────────────────────────── -->
+  <div id="app-body" class="hidden">
+
+    <!-- Module sidebar (wiki / admin) -->
+    <nav id="module-sidebar">
+      <button class="module-nav-btn active" data-module="wiki">
+        <span class="module-nav-icon">📄</span>Reuniones
+      </button>
+      <button class="module-nav-btn hidden" data-module="admin" id="admin-nav-btn">
+        <span class="module-nav-icon">⚙️</span>Administración
+      </button>
+    </nav>
+
+    <!-- Main area -->
+    <main id="main-area">
+
+      <!-- ── WIKI MODULE ───────────────────────────────────────────── -->
+      <div id="wiki-module" class="module active">
+
+        <!-- Wiki sidebar: sections + pages -->
+        <div id="wiki-sidebar">
+          <div class="wiki-sidebar-header">
+            <span>Secciones</span>
+            <button id="create-section-btn" class="btn-sm primary hidden" title="Crear sección" style="font-size:11px;padding:3px 8px">+ Nueva</button>
+          </div>
+          <div id="sections-list">
+            <div class="empty-state" id="sections-empty">
+              <p>No hay secciones aún.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Editor area -->
+        <div id="wiki-editor-area">
+
+          <!-- Empty / no page selected -->
+          <div id="editor-empty-state">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+              <line x1="10" y1="9" x2="8" y2="9"/>
+            </svg>
+            <span>Seleccioná una página para ver su contenido</span>
+          </div>
+
+          <!-- Editor (hidden until page selected) -->
+          <div id="editor-container" class="hidden">
+
+            <div id="editor-header">
+              <input
+                id="page-title-input"
+                type="text"
+                placeholder="Título de la página"
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <span id="save-indicator"></span>
+            </div>
+
+            <div id="editor-toolbar">
+              <button class="toolbar-btn" data-cmd="bold" title="Negrita (Ctrl+B)"><strong>B</strong></button>
+              <button class="toolbar-btn" data-cmd="italic" title="Cursiva (Ctrl+I)"><em>I</em></button>
+              <button class="toolbar-btn" data-cmd="underline" title="Subrayado (Ctrl+U)"><u>U</u></button>
+              <button class="toolbar-btn" data-cmd="strikeThrough" title="Tachado"><s>S</s></button>
+              <span class="toolbar-sep"></span>
+              <button class="toolbar-btn" data-cmd="formatBlock" data-val="h1" title="Título 1">H1</button>
+              <button class="toolbar-btn" data-cmd="formatBlock" data-val="h2" title="Título 2">H2</button>
+              <button class="toolbar-btn" data-cmd="formatBlock" data-val="h3" title="Título 3">H3</button>
+              <button class="toolbar-btn" data-cmd="formatBlock" data-val="p" title="Párrafo">¶</button>
+              <span class="toolbar-sep"></span>
+              <button class="toolbar-btn" data-cmd="insertUnorderedList" title="Lista con viñetas">• Lista</button>
+              <button class="toolbar-btn" data-cmd="insertOrderedList" title="Lista numerada">1. Lista</button>
+              <span class="toolbar-sep"></span>
+              <button class="toolbar-btn" data-cmd="createLink" title="Insertar enlace">🔗</button>
+              <button class="toolbar-btn" data-cmd="insertHorizontalRule" title="Separador horizontal">—</button>
+            </div>
+
+            <div
+              id="editor-content"
+              contenteditable="false"
+              spellcheck="true"
+            ></div>
+
+          </div><!-- /editor-container -->
+        </div><!-- /wiki-editor-area -->
+      </div><!-- /wiki-module -->
+
+      <!-- ── ADMIN MODULE ──────────────────────────────────────────── -->
+      <div id="admin-module" class="module">
+
+        <div class="admin-panel-header">
+          <h2>Panel de Administración</h2>
+          <div class="admin-tabs">
+            <button class="tab-btn active" data-tab="users">Usuarios</button>
+            <button class="tab-btn" data-tab="sections">Reuniones — Secciones</button>
+            <button class="tab-btn" data-tab="activity">Actividad</button>
+          </div>
+        </div>
+
+        <!-- Tab: Users -->
+        <div id="tab-users" class="admin-tab-content active">
+          <div class="content-toolbar">
+            <h3>Gestión de usuarios</h3>
+            <button class="btn-sm primary" id="create-user-btn">+ Crear usuario</button>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table" id="users-table">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Email</th>
+                  <th>Rol</th>
+                  <th>Estado</th>
+                  <th>Creado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="users-table-body">
+                <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px">Cargando usuarios...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tab: Sections -->
+        <div id="tab-sections" class="admin-tab-content">
+          <div class="content-toolbar">
+            <h3>Secciones de Reuniones</h3>
+            <button class="btn-sm primary" id="admin-create-section-btn">+ Crear sección</button>
+          </div>
+          <div id="admin-sections-list"></div>
+        </div>
+
+        <!-- Tab: Activity -->
+        <div id="tab-activity" class="admin-tab-content">
+          <div class="content-toolbar">
+            <h3>Actividad reciente</h3>
+          </div>
+          <div id="activity-list">
+            <p style="color:var(--text-muted);font-size:13px">Cargando actividad...</p>
+          </div>
+        </div>
+
+      </div><!-- /admin-module -->
+
+    </main>
+  </div><!-- /app-body -->
+
+  <!-- ── MODAL ───────────────────────────────────────────────────────────── -->
+  <div id="modal-overlay" class="hidden" role="dialog" aria-modal="true">
+    <div id="modal-box">
+      <div class="modal-header">
+        <span class="modal-title" id="modal-title"></span>
+        <button class="modal-close-btn" id="modal-close-btn" title="Cerrar">×</button>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+      <div class="modal-footer" id="modal-footer"></div>
+    </div>
+  </div>
+
+  <!-- ── TOASTS ──────────────────────────────────────────────────────────── -->
+  <div id="toast-container"></div>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <script src="app.js"></script>
+</body>
+</html>

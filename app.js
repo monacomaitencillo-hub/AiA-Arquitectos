@@ -18,7 +18,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db   = firebase.firestore();
 
-const API_BASE = 'http://localhost:3000';
+const API_BASE = '';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STATE

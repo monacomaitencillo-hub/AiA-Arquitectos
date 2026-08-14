@@ -753,15 +753,21 @@ function openCreatePageModal(sectionId) {
     $('m-confirm-btn').disabled = true;
     try {
       const maxOrder = state.pages.filter(p => p.sectionId === sectionId).reduce((m, p) => Math.max(m, p.order || 0), 0);
+      const now = new Date();
+      const fechaLabel = now.toLocaleDateString('es-AR', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+      });
+      const fechaCapitalizada = fechaLabel.charAt(0).toUpperCase() + fechaLabel.slice(1);
+      const initialContent = `<h2>${fechaCapitalizada}</h2><p><br></p>`;
       const docRef = await db.collection('pages').add({
         sectionId,
         title,
-        content: '',
+        content: initialContent,
         order: maxOrder + 1,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedBy: state.authUser.uid,
       });
-      const newPage = { id: docRef.id, sectionId, title, content: '', order: maxOrder + 1 };
+      const newPage = { id: docRef.id, sectionId, title, content: initialContent, order: maxOrder + 1 };
       state.pages.push(newPage);
       closeModal();
       renderWikiSidebar();

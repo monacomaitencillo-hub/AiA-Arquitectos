@@ -439,6 +439,18 @@ async function loadPage(pageId) {
   DOM.editorContent.contentEditable = canEdit ? 'true' : 'false';
   DOM.editorToolbar.style.display = canEdit ? 'flex' : 'none';
 
+  // Auto-insert today's date if the page has contenido previo y aún no tiene la fecha de hoy
+  if (canEdit && page.content) {
+    const hoy = new Date().toLocaleDateString('es-AR', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    });
+    const hoyCapitalizado = hoy.charAt(0).toUpperCase() + hoy.slice(1);
+    if (!page.content.includes(hoyCapitalizado)) {
+      DOM.editorContent.innerHTML += `<hr><h2>${hoyCapitalizado}</h2><p><br></p>`;
+      scheduleAutosave();
+    }
+  }
+
   setSaveIndicator('');
 
   // Update sidebar active state

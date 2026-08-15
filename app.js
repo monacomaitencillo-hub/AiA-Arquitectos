@@ -32,7 +32,7 @@ const state = {
   currentPageId: null,
   autosaveTimer: null,
   isDirty:     false,
-  antecedentes: { fecha: '', unidades: null, encargados: [], m2: [] },
+  antecedentes: { comuna: '', unidades: null, m2Total: null, encargados: [] },
 };
 
 // Predefined section colors
@@ -69,16 +69,12 @@ const DOM = {
   editorToolbar:     $('editor-toolbar'),
   editorContent:     $('editor-content'),
   // Antecedentes
-  antFecha:          $('ant-fecha'),
+  antComuna:         $('ant-comuna'),
   antUnidades:       $('ant-unidades'),
+  antM2Total:        $('ant-m2total'),
   antEncargadosChips:$('ant-encargados-chips'),
   antEncargadoInput: $('ant-encargado-input'),
   antEncargadoAddBtn:$('ant-encargado-add'),
-  antM2List:         $('ant-m2-list'),
-  antM2Label:        $('ant-m2-label'),
-  antM2Valor:        $('ant-m2-valor'),
-  antM2AddBtn:       $('ant-m2-add'),
-  antM2Total:        $('ant-m2-total'),
   // Resumen diario
   resumenModule:         $('resumen-module'),
   resumenSidebar:        $('resumen-sidebar'),
@@ -627,41 +623,41 @@ function openInsertDateModal() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// WIKI — ANTECEDENTES PANEL (ficha fija por página: fecha, encargados, m², unidades)
+// WIKI — ANTECEDENTES PANEL (ficha fija por página: comuna, encargados, m², unidades)
 // ═══════════════════════════════════════════════════════════════════════════
 
 function normalizeAntecedentes(raw) {
+  // m2Total: si la página venía del esquema viejo (lista de m² por unidad),
+  // se suma esa lista como valor de arranque para no perder lo ya cargado.
+  const legacyM2Sum = Array.isArray(raw?.m2)
+    ? raw.m2.reduce((sum, x) => sum + (Number(x.valor) || 0), 0)
+    : null;
+
   return {
-    fecha: raw?.fecha || '',
+    comuna: raw?.comuna || '',
     unidades: (raw?.unidades === 0 || raw?.unidades) ? Number(raw.unidades) : null,
+    m2Total: (raw?.m2Total === 0 || raw?.m2Total) ? Number(raw.m2Total) : legacyM2Sum,
     encargados: Array.isArray(raw?.encargados) ? raw.encargados.slice() : [],
-    m2: Array.isArray(raw?.m2)
-      ? raw.m2.map(x => ({ label: x.label || '', valor: Number(x.valor) || 0 }))
-      : [],
   };
 }
 
 function renderAntecedentesPanel(canEdit) {
   const a = state.antecedentes;
 
-  DOM.antFecha.value = a.fecha || '';
-  DOM.antFecha.disabled = !canEdit;
+  DOM.antComuna.value = a.comuna || '';
+  DOM.antComuna.disabled = !canEdit;
 
   DOM.antUnidades.value = a.unidades ?? '';
   DOM.antUnidades.disabled = !canEdit;
+
+  DOM.antM2Total.value = a.m2Total ?? '';
+  DOM.antM2Total.disabled = !canEdit;
 
   DOM.antEncargadoInput.disabled = !canEdit;
   DOM.antEncargadoAddBtn.style.display = canEdit ? '' : 'none';
   DOM.antEncargadoInput.style.display = canEdit ? '' : 'none';
 
-  DOM.antM2Label.disabled = !canEdit;
-  DOM.antM2Valor.disabled = !canEdit;
-  DOM.antM2AddBtn.style.display = canEdit ? '' : 'none';
-  DOM.antM2Label.style.display = canEdit ? '' : 'none';
-  DOM.antM2Valor.style.display = canEdit ? '' : 'none';
-
   renderEncargadosChips(canEdit);
-  renderM2List(canEdit);
 }
 
 function renderEncargadosChips(canEdit) {
@@ -694,42 +690,6 @@ function addEncargado() {
   DOM.antEncargadoInput.focus();
 }
 
-function renderM2List(canEdit) {
-  const list = state.antecedentes.m2;
-  DOM.antM2List.innerHTML = list.length
-    ? list.map((item, i) => `
-      <div class="ant-m2-row">
-        <span class="ant-m2-label">${escHtml(item.label || 'Sin etiqueta')}</span>
-        <span class="ant-m2-valor">${item.valor.toLocaleString('es-AR')} m²</span>
-        ${canEdit ? `<button type="button" class="ant-m2-remove" data-index="${i}" title="Quitar">×</button>` : ''}
-      </div>
-    `).join('')
-    : '<span class="ant-empty-hint">Sin datos de m²</span>';
-
-  DOM.antM2List.querySelectorAll('.ant-m2-remove').forEach(btn => {
-    btn.addEventListener('click', () => {
-      state.antecedentes.m2.splice(parseInt(btn.dataset.index, 10), 1);
-      renderM2List(true);
-      saveAntecedentesNow();
-    });
-  });
-
-  const total = list.reduce((sum, x) => sum + (x.valor || 0), 0);
-  DOM.antM2Total.textContent = list.length ? `Total: ${total.toLocaleString('es-AR')} m²` : '';
-}
-
-function addM2() {
-  const label = DOM.antM2Label.value.trim();
-  const valor = parseFloat(DOM.antM2Valor.value);
-  if (!valor || valor <= 0) return;
-  state.antecedentes.m2.push({ label, valor });
-  DOM.antM2Label.value = '';
-  DOM.antM2Valor.value = '';
-  renderM2List(true);
-  saveAntecedentesNow();
-  DOM.antM2Label.focus();
-}
-
 // Guarda de inmediato (sin el debounce de 1.2s de scheduleAutosave) para
 // acciones puntuales de lista (agregar/quitar) donde el usuario espera que
 // quede guardado ya mismo, incluso si recarga la página al toque.
@@ -740,9 +700,9 @@ function saveAntecedentesNow() {
 }
 
 function initAntecedentesPanel() {
-  DOM.antFecha.addEventListener('change', () => {
-    state.antecedentes.fecha = DOM.antFecha.value;
-    saveAntecedentesNow();
+  DOM.antComuna.addEventListener('input', () => {
+    state.antecedentes.comuna = DOM.antComuna.value;
+    scheduleAutosave();
   });
 
   DOM.antUnidades.addEventListener('input', () => {
@@ -751,14 +711,15 @@ function initAntecedentesPanel() {
     scheduleAutosave();
   });
 
+  DOM.antM2Total.addEventListener('input', () => {
+    const v = DOM.antM2Total.value;
+    state.antecedentes.m2Total = v === '' ? null : Number(v);
+    scheduleAutosave();
+  });
+
   DOM.antEncargadoAddBtn.addEventListener('click', addEncargado);
   DOM.antEncargadoInput.addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); addEncargado(); }
-  });
-
-  DOM.antM2AddBtn.addEventListener('click', addM2);
-  DOM.antM2Valor.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); addM2(); }
   });
 }
 
@@ -978,7 +939,7 @@ function openCreatePageModal(sectionId) {
       const maxOrder = state.pages.filter(p => p.sectionId === sectionId).reduce((m, p) => Math.max(m, p.order || 0), 0);
       const fechaCapitalizada = formatDayLabel(parseDateInputValue(dateValue));
       const initialContent = `<h2>${fechaCapitalizada}</h2><p><br></p>`;
-      const initialAntecedentes = normalizeAntecedentes({ fecha: dateValue });
+      const initialAntecedentes = normalizeAntecedentes({});
       const docRef = await db.collection('pages').add({
         sectionId,
         title,

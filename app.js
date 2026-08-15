@@ -130,6 +130,18 @@ function closeModal() {
   DOM.modalFooter.innerHTML = '';
 }
 
+// "AAAA-MM-DD" para el value por defecto de <input type="date">.
+function todayInputValue() {
+  return dateKey(new Date());
+}
+
+// Parsea "AAAA-MM-DD" como fecha LOCAL (new Date(str) la toma como UTC y
+// puede correrse un día para atrás en husos horarios negativos como -03:00).
+function parseDateInputValue(value) {
+  const [y, m, d] = value.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
 DOM.modalCloseBtn.addEventListener('click', closeModal);
 DOM.modalOverlay.addEventListener('click', e => {
   if (e.target === DOM.modalOverlay) closeModal();
@@ -454,18 +466,6 @@ async function loadPage(pageId) {
   DOM.editorContent.contentEditable = canEdit ? 'true' : 'false';
   DOM.editorToolbar.style.display = canEdit ? 'flex' : 'none';
 
-  // Auto-insert today's date if the page has contenido previo y aún no tiene la fecha de hoy
-  if (canEdit && page.content) {
-    const hoy = new Date().toLocaleDateString('es-AR', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-    });
-    const hoyCapitalizado = hoy.charAt(0).toUpperCase() + hoy.slice(1);
-    if (!page.content.includes(hoyCapitalizado)) {
-      DOM.editorContent.innerHTML += `<hr><h2>${hoyCapitalizado}</h2><p><br></p>`;
-      scheduleAutosave();
-    }
-  }
-
   setSaveIndicator('');
 
   // Update sidebar active state
@@ -543,6 +543,12 @@ function initEditorToolbar() {
   DOM.editorToolbar.querySelectorAll('.toolbar-btn').forEach(btn => {
     btn.addEventListener('click', e => {
       e.preventDefault();
+
+      if (btn.id === 'insert-date-btn') {
+        openInsertDateModal();
+        return;
+      }
+
       const cmd = btn.dataset.cmd;
       const val = btn.dataset.val || null;
 
@@ -569,6 +575,36 @@ function initEditorToolbar() {
       if (e.key === 'i') { e.preventDefault(); document.execCommand('italic'); }
       if (e.key === 'u') { e.preventDefault(); document.execCommand('underline'); }
     }
+  });
+}
+
+// Inserta un nuevo bloque fechado ("<hr><h2>fecha</h2>") al final de la
+// página actual, con la fecha elegida a mano en el calendario (no la de hoy).
+function openInsertDateModal() {
+  openModal({
+    title: 'Insertar nueva fecha',
+    body: `
+      <div class="form-group">
+        <label>Fecha</label>
+        <input id="m-insert-date" type="date" value="${todayInputValue()}" />
+      </div>
+    `,
+    footer: `
+      <button class="btn-sm" id="m-cancel-btn">Cancelar</button>
+      <button class="btn-sm primary" id="m-confirm-btn">Insertar</button>
+    `,
+  });
+
+  $('m-cancel-btn').addEventListener('click', closeModal);
+  $('m-confirm-btn').addEventListener('click', () => {
+    const dateValue = $('m-insert-date').value;
+    if (!dateValue) return;
+
+    const label = formatDayLabel(parseDateInputValue(dateValue));
+    DOM.editorContent.innerHTML += `<hr><h2>${label}</h2><p><br></p>`;
+    scheduleAutosave();
+    closeModal();
+    DOM.editorContent.focus();
   });
 }
 
@@ -764,6 +800,10 @@ function openCreatePageModal(sectionId) {
         <label>Título de la página</label>
         <input id="m-page-title" type="text" placeholder="Nombre de la reunión o tema" maxlength="120" />
       </div>
+      <div class="form-group">
+        <label>Fecha</label>
+        <input id="m-page-date" type="date" value="${todayInputValue()}" />
+      </div>
       <div id="m-page-error" class="form-error" style="display:none"></div>
     `,
     footer: `
@@ -776,15 +816,13 @@ function openCreatePageModal(sectionId) {
   $('m-confirm-btn').addEventListener('click', async () => {
     const title = $('m-page-title').value.trim();
     if (!title) { $('m-page-error').textContent = 'Ingresá un título.'; $('m-page-error').style.display='block'; return; }
+    const dateValue = $('m-page-date').value;
+    if (!dateValue) { $('m-page-error').textContent = 'Elegí una fecha.'; $('m-page-error').style.display='block'; return; }
 
     $('m-confirm-btn').disabled = true;
     try {
       const maxOrder = state.pages.filter(p => p.sectionId === sectionId).reduce((m, p) => Math.max(m, p.order || 0), 0);
-      const now = new Date();
-      const fechaLabel = now.toLocaleDateString('es-AR', {
-        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-      });
-      const fechaCapitalizada = fechaLabel.charAt(0).toUpperCase() + fechaLabel.slice(1);
+      const fechaCapitalizada = formatDayLabel(parseDateInputValue(dateValue));
       const initialContent = `<h2>${fechaCapitalizada}</h2><p><br></p>`;
       const docRef = await db.collection('pages').add({
         sectionId,

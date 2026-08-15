@@ -67,6 +67,18 @@ const DOM = {
   saveIndicator:     $('save-indicator'),
   editorToolbar:     $('editor-toolbar'),
   editorContent:     $('editor-content'),
+  // Resumen semanal
+  resumenModule:         $('resumen-module'),
+  resumenSidebar:        $('resumen-sidebar'),
+  resumenWeeksList:      $('resumen-weeks-list'),
+  resumenEmptyState:     $('resumen-empty-state'),
+  resumenReportContainer:$('resumen-report-container'),
+  resumenReport:         $('resumen-report'),
+  resumenWeekLabel:      $('resumen-week-label'),
+  resumenWeekMeta:       $('resumen-week-meta'),
+  resumenPrevBtn:        $('resumen-prev-btn'),
+  resumenNextBtn:        $('resumen-next-btn'),
+  resumenPrintBtn:       $('resumen-print-btn'),
   // Admin
   adminModule:       $('admin-module'),
   adminNavBtn:       $('admin-nav-btn'),
@@ -232,6 +244,9 @@ function switchModule(moduleName) {
 
   if (moduleName === 'admin') {
     loadAdminTab('users');
+  }
+  if (moduleName === 'resumen') {
+    loadResumen();
   }
 }
 
@@ -835,6 +850,298 @@ async function confirmDeletePage(pageId) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// RESUMEN SEMANAL
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Cada página de Reuniones va acumulando entradas fechadas, separadas por
+// <hr>, donde la primera línea de cada entrada es un <h2> con la fecha en
+// español (insertado automáticamente al crear la página o al abrirla en un
+// día nuevo). Este módulo detecta esas fechas de TODAS las secciones/páginas
+// accesibles, arma semanas calendario (lunes a domingo) y, dentro de cada
+// semana, agrupa todo lo ocurrido por día — ej. "Viernes 14 de agosto" — para
+// que el reporte se lea como un resumen cronológico único, listo para
+// imprimir y repartir en la oficina.
+
+const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const DIAS_ES  = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+const DATE_HEADING_RE = /(\d{1,2})\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+de\s+(\d{4})/i;
+
+const resumenState = {
+  weeks: [],       // [{ key, monday, sunday, entries: [...] }]
+  currentIndex: -1,
+};
+
+function mondayOf(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  const day = d.getDay(); // 0=Dom .. 6=Sáb
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+
+function sundayOf(monday) {
+  const d = new Date(monday);
+  d.setDate(d.getDate() + 6);
+  return d;
+}
+
+function weekKey(monday) {
+  return monday.toISOString().slice(0, 10);
+}
+
+function formatDayMonth(d) {
+  return `${d.getDate()} de ${MESES_ES[d.getMonth()]}`;
+}
+
+function formatWeekLabel(monday, sunday) {
+  const sameMonth = monday.getMonth() === sunday.getMonth();
+  const sameYear  = monday.getFullYear() === sunday.getFullYear();
+  if (sameMonth) {
+    return `Semana del ${monday.getDate()} al ${sunday.getDate()} de ${MESES_ES[monday.getMonth()]} de ${sunday.getFullYear()}`;
+  }
+  if (sameYear) {
+    return `Semana del ${formatDayMonth(monday)} al ${formatDayMonth(sunday)} de ${sunday.getFullYear()}`;
+  }
+  return `Semana del ${formatDayMonth(monday)} de ${monday.getFullYear()} al ${formatDayMonth(sunday)} de ${sunday.getFullYear()}`;
+}
+
+// Splits a page's HTML content into dated entries using <hr> as separator
+// and the leading <h2> of each chunk as the date marker.
+function capitalizeFirst(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function toJsDate(value) {
+  if (!value) return null;
+  return value.toDate ? value.toDate() : new Date(value);
+}
+
+// Intenta leer la fecha "D de MES de AAAA" del <h2> de una entrada. Si el
+// encabezado no está o no matchea (se editó, se borró, formato distinto),
+// se usa como respaldo la fecha de última edición de la página, para que
+// cualquier contenido cargado en Reuniones termine apareciendo en el
+// resumen igual, en vez de desaparecer silenciosamente.
+function splitPageIntoEntries(page) {
+  const html = page.content || '';
+  if (!html.trim()) return [];
+
+  const chunks = html.split(/<hr\s*\/?>/i);
+  const entries = [];
+  const fallbackDate = toJsDate(page.updatedAt);
+
+  chunks.forEach(chunk => {
+    let date = null;
+    let dateLabel = '';
+    let bodyHtml = chunk;
+
+    const h2Match = chunk.match(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
+    if (h2Match) {
+      const rawLabel = h2Match[1].replace(/<[^>]+>/g, '').trim();
+      const dm = rawLabel.match(DATE_HEADING_RE);
+      if (dm) {
+        const day   = parseInt(dm[1], 10);
+        const month = MESES_ES.indexOf(dm[2].toLowerCase());
+        const year  = parseInt(dm[3], 10);
+        const parsed = new Date(year, month, day);
+        if (!isNaN(parsed.getTime())) {
+          date = parsed;
+          dateLabel = rawLabel;
+          bodyHtml = chunk.slice(h2Match.index + h2Match[0].length);
+        }
+      }
+    }
+
+    if (!date) {
+      if (!fallbackDate) return; // sin encabezado de fecha reconocible ni fecha de edición: no se puede ubicar
+      date = fallbackDate;
+      dateLabel = capitalizeFirst(fallbackDate.toLocaleDateString('es-AR', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+      }));
+      // bodyHtml se deja como el chunk completo (no hay <h2> de fecha que recortar)
+    }
+
+    const isEmpty = bodyHtml
+      .replace(/<(p|div)>\s*(<br\s*\/?>)?\s*<\/(p|div)>/gi, '')
+      .replace(/\s|&nbsp;/g, '').length === 0;
+    if (isEmpty) return;
+
+    entries.push({ date, dateLabel, html: bodyHtml });
+  });
+
+  return entries;
+}
+
+// Groups every dated entry from every accessible section/page into weeks.
+function buildWeeklyData() {
+  const sections = getAccessibleSections();
+  const sectionById = Object.fromEntries(sections.map(s => [s.id, s]));
+  const weeksMap = new Map();
+
+  state.pages.forEach(page => {
+    const section = sectionById[page.sectionId];
+    if (!section) return; // sección no accesible para este usuario
+
+    splitPageIntoEntries(page).forEach(seg => {
+      const monday = mondayOf(seg.date);
+      const key = weekKey(monday);
+      if (!weeksMap.has(key)) {
+        weeksMap.set(key, { key, monday, sunday: sundayOf(monday), entries: [] });
+      }
+      weeksMap.get(key).entries.push({
+        section, page, date: seg.date, dateLabel: seg.dateLabel, html: seg.html,
+      });
+    });
+  });
+
+  const weeks = Array.from(weeksMap.values());
+  weeks.forEach(w => {
+    w.entries.sort((a, b) =>
+      a.date - b.date ||
+      a.section.name.localeCompare(b.section.name) ||
+      (a.page.title || '').localeCompare(b.page.title || '')
+    );
+  });
+  weeks.sort((a, b) => b.monday - a.monday); // más reciente primero
+
+  return weeks;
+}
+
+async function loadResumen() {
+  try {
+    const [sectionsSnap, pagesSnap] = await Promise.all([
+      db.collection('sections').orderBy('createdAt').get(),
+      db.collection('pages').orderBy('order').get(),
+    ]);
+    state.sections = sectionsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    state.pages    = pagesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (err) {
+    console.error('loadResumen error:', err);
+    toast('Error al cargar el resumen: ' + err.message, 'error');
+  }
+
+  resumenState.weeks = buildWeeklyData();
+
+  // Mantener la semana seleccionada si sigue existiendo; si no, ir a la más reciente
+  const prevKey = resumenState.weeks[resumenState.currentIndex]?.key;
+  let idx = prevKey ? resumenState.weeks.findIndex(w => w.key === prevKey) : -1;
+  if (idx === -1) idx = resumenState.weeks.length > 0 ? 0 : -1;
+  resumenState.currentIndex = idx;
+
+  renderResumenSidebar();
+  renderResumenWeek();
+}
+
+function selectResumenWeek(index) {
+  resumenState.currentIndex = index;
+  renderResumenSidebar();
+  renderResumenWeek();
+}
+
+function renderResumenSidebar() {
+  const list = DOM.resumenWeeksList;
+
+  if (resumenState.weeks.length === 0) {
+    list.innerHTML = '<div class="empty-state"><p>No hay resúmenes fechados aún.<br>Se generan automáticamente a partir de las fechas en Reuniones.</p></div>';
+    return;
+  }
+
+  const todayKey = weekKey(mondayOf(new Date()));
+
+  list.innerHTML = resumenState.weeks.map((w, i) => `
+    <div class="resumen-week-item${i === resumenState.currentIndex ? ' active' : ''}" data-index="${i}">
+      <span class="resumen-week-name">${formatWeekLabel(w.monday, w.sunday)}${w.key === todayKey ? ' <span class="resumen-week-tag">Actual</span>' : ''}</span>
+      <span class="resumen-week-count">${w.entries.length} entrada${w.entries.length === 1 ? '' : 's'}</span>
+    </div>
+  `).join('');
+
+  list.querySelectorAll('.resumen-week-item').forEach(el => {
+    el.addEventListener('click', () => {
+      selectResumenWeek(parseInt(el.dataset.index, 10));
+      DOM.resumenSidebar.classList.remove('open');
+    });
+  });
+}
+
+function renderResumenWeek() {
+  const week = resumenState.weeks[resumenState.currentIndex];
+
+  if (!week) {
+    DOM.resumenEmptyState.classList.remove('hidden');
+    DOM.resumenReportContainer.classList.add('hidden');
+    return;
+  }
+
+  DOM.resumenEmptyState.classList.add('hidden');
+  DOM.resumenReportContainer.classList.remove('hidden');
+
+  DOM.resumenWeekLabel.textContent = formatWeekLabel(week.monday, week.sunday);
+  const totalSections = new Set(week.entries.map(e => e.section.id)).size;
+  DOM.resumenWeekMeta.textContent = `${week.entries.length} entrada${week.entries.length === 1 ? '' : 's'} · ${totalSections} ${totalSections === 1 ? 'sección' : 'secciones'}`;
+
+  DOM.resumenPrevBtn.disabled = resumenState.currentIndex >= resumenState.weeks.length - 1;
+  DOM.resumenNextBtn.disabled = resumenState.currentIndex <= 0;
+
+  // Agrupa cronológicamente por día — todo lo que pasó ese día, sin importar la sección
+  const byDay = new Map();
+  week.entries.forEach(e => {
+    const dayKey = e.date.toDateString();
+    if (!byDay.has(dayKey)) byDay.set(dayKey, { date: e.date, entries: [] });
+    byDay.get(dayKey).entries.push(e);
+  });
+  const days = Array.from(byDay.values()).sort((a, b) => a.date - b.date);
+
+  const todayLabel = new Date().toLocaleDateString('es-AR', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  const daysHtml = days.map(({ date, entries }) => {
+    const dayLabel = `${DIAS_ES[date.getDay()]}, ${date.getDate()} de ${MESES_ES[date.getMonth()]} de ${date.getFullYear()}`;
+    const dayLabelCap = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1);
+
+    const entriesHtml = entries.map(e => `
+      <div class="resumen-entry">
+        <div class="resumen-entry-meta">
+          <span class="resumen-entry-section" style="background:${e.section.color || '#6b7280'}">${escHtml(e.section.name)}</span>
+          <span class="resumen-entry-page">${escHtml(e.page.title || 'Sin título')}</span>
+        </div>
+        <div class="resumen-entry-body">${e.html}</div>
+      </div>
+    `).join('');
+
+    return `
+      <div class="resumen-day-block">
+        <h3 class="resumen-day-title">${escHtml(dayLabelCap)}</h3>
+        ${entriesHtml}
+      </div>
+    `;
+  }).join('');
+
+  DOM.resumenReport.innerHTML = `
+    <div class="resumen-print-header">
+      <div class="resumen-print-brand">AiA Arquitectos</div>
+      <h1 class="resumen-print-title">${formatWeekLabel(week.monday, week.sunday)}</h1>
+      <div class="resumen-print-sub">Resumen semanal de reuniones · Generado el ${todayLabel}</div>
+    </div>
+    ${daysHtml || '<div class="empty-state"><p>Sin entradas para esta semana.</p></div>'}
+  `;
+}
+
+DOM.resumenPrevBtn.addEventListener('click', () => {
+  if (resumenState.currentIndex < resumenState.weeks.length - 1) {
+    selectResumenWeek(resumenState.currentIndex + 1);
+  }
+});
+
+DOM.resumenNextBtn.addEventListener('click', () => {
+  if (resumenState.currentIndex > 0) {
+    selectResumenWeek(resumenState.currentIndex - 1);
+  }
+});
+
+DOM.resumenPrintBtn.addEventListener('click', () => {
+  window.print();
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ADMIN — USERS TAB
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1185,9 +1492,12 @@ async function loadActivity() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 DOM.hamburger.addEventListener('click', () => {
-  // If wiki is active, also toggle wiki sidebar
+  // If wiki/resumen is active, also toggle its own sidebar
   if (DOM.wikiModule.classList.contains('active')) {
     DOM.wikiSidebar.classList.toggle('open');
+  }
+  if (DOM.resumenModule.classList.contains('active')) {
+    DOM.resumenSidebar.classList.toggle('open');
   }
 });
 

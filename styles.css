@@ -352,11 +352,11 @@ a:hover { text-decoration: underline; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
-/* RESUMEN SEMANAL MODULE                                                      */
+/* RESUMEN DIARIO MODULE                                                       */
 /* ═══════════════════════════════════════════════════════════════════════════ */
 #resumen-module { flex-direction: row; }
 
-/* Weeks sidebar */
+/* Days sidebar */
 #resumen-sidebar {
   width: var(--wiki-sidebar-w);
   background: var(--sidebar-bg);
@@ -364,24 +364,24 @@ a:hover { text-decoration: underline; }
   display: flex; flex-direction: column;
   flex-shrink: 0; overflow: hidden;
 }
-#resumen-weeks-list { flex: 1; overflow-y: auto; padding: 4px 8px 16px; }
+#resumen-days-list { flex: 1; overflow-y: auto; padding: 4px 8px 16px; }
 
-.resumen-week-item {
+.resumen-day-item {
   display: flex; flex-direction: column; gap: 2px;
   padding: 9px 10px; border-radius: var(--radius);
   cursor: pointer; transition: background .12s; margin-bottom: 2px;
 }
-.resumen-week-item:hover { background: var(--sidebar-hover); }
-.resumen-week-item.active { background: var(--accent-light); }
-.resumen-week-item.active .resumen-week-name { color: var(--accent); font-weight: 600; }
-.resumen-week-name { font-size: 13px; color: var(--text); line-height: 1.35; }
-.resumen-week-tag {
+.resumen-day-item:hover { background: var(--sidebar-hover); }
+.resumen-day-item.active { background: var(--accent-light); }
+.resumen-day-item.active .resumen-day-name { color: var(--accent); font-weight: 600; }
+.resumen-day-name { font-size: 13px; color: var(--text); line-height: 1.35; }
+.resumen-day-tag {
   display: inline-block; margin-left: 4px;
   font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
   color: var(--accent); background: var(--accent-light); padding: 1px 6px; border-radius: 99px;
 }
-.resumen-week-item.active .resumen-week-tag { background: #fff; }
-.resumen-week-count { font-size: 11px; color: var(--text-muted); }
+.resumen-day-item.active .resumen-day-tag { background: #fff; }
+.resumen-day-count { font-size: 11px; color: var(--text-muted); }
 
 /* Report area */
 #resumen-report-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
@@ -399,8 +399,8 @@ a:hover { text-decoration: underline; }
   flex-shrink: 0;
 }
 .resumen-toolbar-title { flex: 1; min-width: 0; }
-#resumen-week-label { display: block; font-size: 14px; font-weight: 700; color: var(--text); }
-#resumen-week-meta { display: block; font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+#resumen-day-label { display: block; font-size: 14px; font-weight: 700; color: var(--text); }
+#resumen-day-meta { display: block; font-size: 12px; color: var(--text-muted); margin-top: 1px; }
 .resumen-toolbar-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 #resumen-prev-btn:disabled, #resumen-next-btn:disabled { opacity: .35; cursor: not-allowed; }
 
@@ -422,15 +422,7 @@ a:hover { text-decoration: underline; }
 .resumen-print-title { font-size: 22px; font-weight: 700; letter-spacing: -.3px; color: var(--text); }
 .resumen-print-sub { font-size: 12.5px; color: var(--text-muted); margin-top: 6px; }
 
-/* Day block — everything that happened on a given date, across sections */
-.resumen-day-block { margin-bottom: 22px; break-inside: avoid-page; }
-.resumen-day-title {
-  font-size: 15px; font-weight: 700; color: var(--text);
-  padding-bottom: 8px; margin-bottom: 12px;
-  border-bottom: 1px solid var(--border);
-}
-
-/* Individual entry within a day */
+/* Individual entry within the selected day */
 .resumen-entry {
   padding: 12px 16px; margin-bottom: 10px;
   background: var(--sidebar-bg); border: 1px solid var(--border); border-radius: var(--radius-lg);
@@ -807,15 +799,13 @@ a:hover { text-decoration: underline; }
   }
 
   .resumen-print-header { border-bottom-color: #000 !important; }
-  .resumen-print-brand, .resumen-print-title, .resumen-entry-date { color: #000 !important; }
+  .resumen-print-brand, .resumen-print-title { color: #000 !important; }
 
   .resumen-entry {
     background: #fff !important;
     border: 1px solid #ccc !important;
+    break-inside: avoid; page-break-inside: avoid;
   }
-
-  .resumen-day-block { break-inside: avoid; page-break-inside: avoid; }
-  .resumen-entry { break-inside: avoid; page-break-inside: avoid; }
 
   a { color: #000 !important; text-decoration: none !important; }
 }

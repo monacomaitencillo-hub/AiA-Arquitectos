@@ -67,15 +67,15 @@ const DOM = {
   saveIndicator:     $('save-indicator'),
   editorToolbar:     $('editor-toolbar'),
   editorContent:     $('editor-content'),
-  // Resumen semanal
+  // Resumen diario
   resumenModule:         $('resumen-module'),
   resumenSidebar:        $('resumen-sidebar'),
-  resumenWeeksList:      $('resumen-weeks-list'),
+  resumenDaysList:       $('resumen-days-list'),
   resumenEmptyState:     $('resumen-empty-state'),
   resumenReportContainer:$('resumen-report-container'),
   resumenReport:         $('resumen-report'),
-  resumenWeekLabel:      $('resumen-week-label'),
-  resumenWeekMeta:       $('resumen-week-meta'),
+  resumenDayLabel:       $('resumen-day-label'),
+  resumenDayMeta:        $('resumen-day-meta'),
   resumenPrevBtn:        $('resumen-prev-btn'),
   resumenNextBtn:        $('resumen-next-btn'),
   resumenPrintBtn:       $('resumen-print-btn'),
@@ -850,60 +850,35 @@ async function confirmDeletePage(pageId) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// RESUMEN SEMANAL
+// RESUMEN DIARIO
 // ═══════════════════════════════════════════════════════════════════════════
 //
 // Cada página de Reuniones va acumulando entradas fechadas, separadas por
 // <hr>, donde la primera línea de cada entrada es un <h2> con la fecha en
 // español (insertado automáticamente al crear la página o al abrirla en un
 // día nuevo). Este módulo detecta esas fechas de TODAS las secciones/páginas
-// accesibles, arma semanas calendario (lunes a domingo) y, dentro de cada
-// semana, agrupa todo lo ocurrido por día — ej. "Viernes 14 de agosto" — para
-// que el reporte se lea como un resumen cronológico único, listo para
-// imprimir y repartir en la oficina.
+// accesibles y arma, para cada día calendario, un resumen único con todo lo
+// ocurrido ese día (sin importar la sección) — listo para elegir un día
+// puntual e imprimirlo para repartir en la oficina.
 
 const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 const DIAS_ES  = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
 const DATE_HEADING_RE = /(\d{1,2})\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+de\s+(\d{4})/i;
 
 const resumenState = {
-  weeks: [],       // [{ key, monday, sunday, entries: [...] }]
+  days: [],       // [{ key, date, entries: [...] }]
   currentIndex: -1,
 };
 
-function mondayOf(date) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  const day = d.getDay(); // 0=Dom .. 6=Sáb
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  return d;
+// Clave "AAAA-MM-DD" en hora LOCAL (no usar toISOString: en husos horarios
+// adelantados a UTC corre la fecha un día para atrás).
+function dateKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function sundayOf(monday) {
-  const d = new Date(monday);
-  d.setDate(d.getDate() + 6);
-  return d;
-}
-
-function weekKey(monday) {
-  return monday.toISOString().slice(0, 10);
-}
-
-function formatDayMonth(d) {
-  return `${d.getDate()} de ${MESES_ES[d.getMonth()]}`;
-}
-
-function formatWeekLabel(monday, sunday) {
-  const sameMonth = monday.getMonth() === sunday.getMonth();
-  const sameYear  = monday.getFullYear() === sunday.getFullYear();
-  if (sameMonth) {
-    return `Semana del ${monday.getDate()} al ${sunday.getDate()} de ${MESES_ES[monday.getMonth()]} de ${sunday.getFullYear()}`;
-  }
-  if (sameYear) {
-    return `Semana del ${formatDayMonth(monday)} al ${formatDayMonth(sunday)} de ${sunday.getFullYear()}`;
-  }
-  return `Semana del ${formatDayMonth(monday)} de ${monday.getFullYear()} al ${formatDayMonth(sunday)} de ${sunday.getFullYear()}`;
+function formatDayLabel(date) {
+  const label = `${DIAS_ES[date.getDay()]}, ${date.getDate()} de ${MESES_ES[date.getMonth()]} de ${date.getFullYear()}`;
+  return capitalizeFirst(label);
 }
 
 // Splits a page's HTML content into dated entries using <hr> as separator
@@ -972,39 +947,37 @@ function splitPageIntoEntries(page) {
   return entries;
 }
 
-// Groups every dated entry from every accessible section/page into weeks.
-function buildWeeklyData() {
+// Groups every dated entry from every accessible section/page into days.
+function buildDailyData() {
   const sections = getAccessibleSections();
   const sectionById = Object.fromEntries(sections.map(s => [s.id, s]));
-  const weeksMap = new Map();
+  const daysMap = new Map();
 
   state.pages.forEach(page => {
     const section = sectionById[page.sectionId];
     if (!section) return; // sección no accesible para este usuario
 
     splitPageIntoEntries(page).forEach(seg => {
-      const monday = mondayOf(seg.date);
-      const key = weekKey(monday);
-      if (!weeksMap.has(key)) {
-        weeksMap.set(key, { key, monday, sunday: sundayOf(monday), entries: [] });
+      const key = dateKey(seg.date);
+      if (!daysMap.has(key)) {
+        daysMap.set(key, { key, date: seg.date, entries: [] });
       }
-      weeksMap.get(key).entries.push({
-        section, page, date: seg.date, dateLabel: seg.dateLabel, html: seg.html,
+      daysMap.get(key).entries.push({
+        section, page, dateLabel: seg.dateLabel, html: seg.html,
       });
     });
   });
 
-  const weeks = Array.from(weeksMap.values());
-  weeks.forEach(w => {
-    w.entries.sort((a, b) =>
-      a.date - b.date ||
+  const days = Array.from(daysMap.values());
+  days.forEach(d => {
+    d.entries.sort((a, b) =>
       a.section.name.localeCompare(b.section.name) ||
       (a.page.title || '').localeCompare(b.page.title || '')
     );
   });
-  weeks.sort((a, b) => b.monday - a.monday); // más reciente primero
+  days.sort((a, b) => b.date - a.date); // más reciente primero
 
-  return weeks;
+  return days;
 }
 
 async function loadResumen() {
@@ -1020,53 +993,53 @@ async function loadResumen() {
     toast('Error al cargar el resumen: ' + err.message, 'error');
   }
 
-  resumenState.weeks = buildWeeklyData();
+  resumenState.days = buildDailyData();
 
-  // Mantener la semana seleccionada si sigue existiendo; si no, ir a la más reciente
-  const prevKey = resumenState.weeks[resumenState.currentIndex]?.key;
-  let idx = prevKey ? resumenState.weeks.findIndex(w => w.key === prevKey) : -1;
-  if (idx === -1) idx = resumenState.weeks.length > 0 ? 0 : -1;
+  // Mantener el día seleccionado si sigue existiendo; si no, ir al más reciente
+  const prevKey = resumenState.days[resumenState.currentIndex]?.key;
+  let idx = prevKey ? resumenState.days.findIndex(d => d.key === prevKey) : -1;
+  if (idx === -1) idx = resumenState.days.length > 0 ? 0 : -1;
   resumenState.currentIndex = idx;
 
   renderResumenSidebar();
-  renderResumenWeek();
+  renderResumenDay();
 }
 
-function selectResumenWeek(index) {
+function selectResumenDay(index) {
   resumenState.currentIndex = index;
   renderResumenSidebar();
-  renderResumenWeek();
+  renderResumenDay();
 }
 
 function renderResumenSidebar() {
-  const list = DOM.resumenWeeksList;
+  const list = DOM.resumenDaysList;
 
-  if (resumenState.weeks.length === 0) {
+  if (resumenState.days.length === 0) {
     list.innerHTML = '<div class="empty-state"><p>No hay resúmenes fechados aún.<br>Se generan automáticamente a partir de las fechas en Reuniones.</p></div>';
     return;
   }
 
-  const todayKey = weekKey(mondayOf(new Date()));
+  const todayKey = dateKey(new Date());
 
-  list.innerHTML = resumenState.weeks.map((w, i) => `
-    <div class="resumen-week-item${i === resumenState.currentIndex ? ' active' : ''}" data-index="${i}">
-      <span class="resumen-week-name">${formatWeekLabel(w.monday, w.sunday)}${w.key === todayKey ? ' <span class="resumen-week-tag">Actual</span>' : ''}</span>
-      <span class="resumen-week-count">${w.entries.length} entrada${w.entries.length === 1 ? '' : 's'}</span>
+  list.innerHTML = resumenState.days.map((d, i) => `
+    <div class="resumen-day-item${i === resumenState.currentIndex ? ' active' : ''}" data-index="${i}">
+      <span class="resumen-day-name">${formatDayLabel(d.date)}${d.key === todayKey ? ' <span class="resumen-day-tag">Hoy</span>' : ''}</span>
+      <span class="resumen-day-count">${d.entries.length} entrada${d.entries.length === 1 ? '' : 's'}</span>
     </div>
   `).join('');
 
-  list.querySelectorAll('.resumen-week-item').forEach(el => {
+  list.querySelectorAll('.resumen-day-item').forEach(el => {
     el.addEventListener('click', () => {
-      selectResumenWeek(parseInt(el.dataset.index, 10));
+      selectResumenDay(parseInt(el.dataset.index, 10));
       DOM.resumenSidebar.classList.remove('open');
     });
   });
 }
 
-function renderResumenWeek() {
-  const week = resumenState.weeks[resumenState.currentIndex];
+function renderResumenDay() {
+  const day = resumenState.days[resumenState.currentIndex];
 
-  if (!week) {
+  if (!day) {
     DOM.resumenEmptyState.classList.remove('hidden');
     DOM.resumenReportContainer.classList.add('hidden');
     return;
@@ -1075,65 +1048,44 @@ function renderResumenWeek() {
   DOM.resumenEmptyState.classList.add('hidden');
   DOM.resumenReportContainer.classList.remove('hidden');
 
-  DOM.resumenWeekLabel.textContent = formatWeekLabel(week.monday, week.sunday);
-  const totalSections = new Set(week.entries.map(e => e.section.id)).size;
-  DOM.resumenWeekMeta.textContent = `${week.entries.length} entrada${week.entries.length === 1 ? '' : 's'} · ${totalSections} ${totalSections === 1 ? 'sección' : 'secciones'}`;
+  DOM.resumenDayLabel.textContent = formatDayLabel(day.date);
+  const totalSections = new Set(day.entries.map(e => e.section.id)).size;
+  DOM.resumenDayMeta.textContent = `${day.entries.length} entrada${day.entries.length === 1 ? '' : 's'} · ${totalSections} ${totalSections === 1 ? 'sección' : 'secciones'}`;
 
-  DOM.resumenPrevBtn.disabled = resumenState.currentIndex >= resumenState.weeks.length - 1;
+  DOM.resumenPrevBtn.disabled = resumenState.currentIndex >= resumenState.days.length - 1;
   DOM.resumenNextBtn.disabled = resumenState.currentIndex <= 0;
 
-  // Agrupa cronológicamente por día — todo lo que pasó ese día, sin importar la sección
-  const byDay = new Map();
-  week.entries.forEach(e => {
-    const dayKey = e.date.toDateString();
-    if (!byDay.has(dayKey)) byDay.set(dayKey, { date: e.date, entries: [] });
-    byDay.get(dayKey).entries.push(e);
-  });
-  const days = Array.from(byDay.values()).sort((a, b) => a.date - b.date);
+  const generadoLabel = new Date().toLocaleDateString('es-AR', { year: 'numeric', month: 'long', day: 'numeric' });
 
-  const todayLabel = new Date().toLocaleDateString('es-AR', { year: 'numeric', month: 'long', day: 'numeric' });
-
-  const daysHtml = days.map(({ date, entries }) => {
-    const dayLabel = `${DIAS_ES[date.getDay()]}, ${date.getDate()} de ${MESES_ES[date.getMonth()]} de ${date.getFullYear()}`;
-    const dayLabelCap = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1);
-
-    const entriesHtml = entries.map(e => `
-      <div class="resumen-entry">
-        <div class="resumen-entry-meta">
-          <span class="resumen-entry-section" style="background:${e.section.color || '#6b7280'}">${escHtml(e.section.name)}</span>
-          <span class="resumen-entry-page">${escHtml(e.page.title || 'Sin título')}</span>
-        </div>
-        <div class="resumen-entry-body">${e.html}</div>
+  const entriesHtml = day.entries.map(e => `
+    <div class="resumen-entry">
+      <div class="resumen-entry-meta">
+        <span class="resumen-entry-section" style="background:${e.section.color || '#6b7280'}">${escHtml(e.section.name)}</span>
+        <span class="resumen-entry-page">${escHtml(e.page.title || 'Sin título')}</span>
       </div>
-    `).join('');
-
-    return `
-      <div class="resumen-day-block">
-        <h3 class="resumen-day-title">${escHtml(dayLabelCap)}</h3>
-        ${entriesHtml}
-      </div>
-    `;
-  }).join('');
+      <div class="resumen-entry-body">${e.html}</div>
+    </div>
+  `).join('');
 
   DOM.resumenReport.innerHTML = `
     <div class="resumen-print-header">
       <div class="resumen-print-brand">AiA Arquitectos</div>
-      <h1 class="resumen-print-title">${formatWeekLabel(week.monday, week.sunday)}</h1>
-      <div class="resumen-print-sub">Resumen semanal de reuniones · Generado el ${todayLabel}</div>
+      <h1 class="resumen-print-title">${formatDayLabel(day.date)}</h1>
+      <div class="resumen-print-sub">Resumen diario de reuniones · Generado el ${generadoLabel}</div>
     </div>
-    ${daysHtml || '<div class="empty-state"><p>Sin entradas para esta semana.</p></div>'}
+    ${entriesHtml || '<div class="empty-state"><p>Sin entradas para este día.</p></div>'}
   `;
 }
 
 DOM.resumenPrevBtn.addEventListener('click', () => {
-  if (resumenState.currentIndex < resumenState.weeks.length - 1) {
-    selectResumenWeek(resumenState.currentIndex + 1);
+  if (resumenState.currentIndex < resumenState.days.length - 1) {
+    selectResumenDay(resumenState.currentIndex + 1);
   }
 });
 
 DOM.resumenNextBtn.addEventListener('click', () => {
   if (resumenState.currentIndex > 0) {
-    selectResumenWeek(resumenState.currentIndex - 1);
+    selectResumenDay(resumenState.currentIndex - 1);
   }
 });
 

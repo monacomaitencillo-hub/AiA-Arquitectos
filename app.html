@@ -35,7 +35,7 @@
         <span class="module-nav-icon">📄</span>Reuniones
       </button>
       <button class="module-nav-btn" data-module="resumen">
-        <span class="module-nav-icon">🗓️</span>Resumen semanal
+        <span class="module-nav-icon">🗓️</span>Resumen diario
       </button>
       <button class="module-nav-btn hidden" data-module="admin" id="admin-nav-btn">
         <span class="module-nav-icon">⚙️</span>Administración
@@ -118,16 +118,16 @@
         </div><!-- /wiki-editor-area -->
       </div><!-- /wiki-module -->
 
-      <!-- ── RESUMEN SEMANAL MODULE ───────────────────────────────────── -->
+      <!-- ── RESUMEN DIARIO MODULE ───────────────────────────────────── -->
       <div id="resumen-module" class="module">
 
-        <!-- Weeks sidebar -->
+        <!-- Days sidebar -->
         <div id="resumen-sidebar">
           <div class="wiki-sidebar-header">
-            <span>Semanas</span>
+            <span>Días</span>
           </div>
-          <div id="resumen-weeks-list">
-            <div class="empty-state" id="resumen-weeks-empty">
+          <div id="resumen-days-list">
+            <div class="empty-state" id="resumen-days-empty">
               <p>No hay resúmenes fechados aún.</p>
             </div>
           </div>
@@ -143,18 +143,18 @@
               <line x1="8" y1="2" x2="8" y2="6"/>
               <line x1="3" y1="10" x2="21" y2="10"/>
             </svg>
-            <span>Seleccioná una semana para ver su resumen</span>
+            <span>Seleccioná un día para ver su resumen</span>
           </div>
 
           <div id="resumen-report-container" class="hidden">
             <div id="resumen-toolbar">
               <div class="resumen-toolbar-title">
-                <span id="resumen-week-label"></span>
-                <span id="resumen-week-meta"></span>
+                <span id="resumen-day-label"></span>
+                <span id="resumen-day-meta"></span>
               </div>
               <div class="resumen-toolbar-actions">
-                <button class="btn-sm js-week-prev" id="resumen-prev-btn" title="Semana anterior">← Anterior</button>
-                <button class="btn-sm js-week-next" id="resumen-next-btn" title="Semana siguiente">Siguiente →</button>
+                <button class="btn-sm js-day-prev" id="resumen-prev-btn" title="Día anterior">← Anterior</button>
+                <button class="btn-sm js-day-next" id="resumen-next-btn" title="Día siguiente">Siguiente →</button>
                 <button class="btn-sm primary" id="resumen-print-btn">🖨️ Imprimir</button>
               </div>
             </div>

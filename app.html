@@ -90,6 +90,43 @@
               <span id="save-indicator"></span>
             </div>
 
+            <div id="antecedentes-panel">
+              <div id="antecedentes-title">Antecedentes</div>
+              <div id="antecedentes-grid">
+
+                <div class="ant-field">
+                  <label>Fecha</label>
+                  <input type="date" id="ant-fecha" />
+                </div>
+
+                <div class="ant-field">
+                  <label>Cantidad de unidades</label>
+                  <input type="number" id="ant-unidades" min="0" step="1" placeholder="0" />
+                </div>
+
+                <div class="ant-field">
+                  <label>Encargado/s</label>
+                  <div id="ant-encargados-chips" class="ant-chips"></div>
+                  <div class="ant-add-row">
+                    <input type="text" id="ant-encargado-input" placeholder="Agregar nombre" maxlength="60" />
+                    <button type="button" class="btn-sm" id="ant-encargado-add">+ Agregar</button>
+                  </div>
+                </div>
+
+                <div class="ant-field ant-field-wide">
+                  <label>m² (por unidad / espacio)</label>
+                  <div id="ant-m2-list" class="ant-m2-list"></div>
+                  <div class="ant-add-row">
+                    <input type="text" id="ant-m2-label" placeholder="Etiqueta (ej. Depto 1)" maxlength="60" />
+                    <input type="number" id="ant-m2-valor" placeholder="m²" min="0" step="0.01" />
+                    <button type="button" class="btn-sm" id="ant-m2-add">+ Agregar</button>
+                  </div>
+                  <div id="ant-m2-total"></div>
+                </div>
+
+              </div>
+            </div>
+
             <div id="editor-toolbar">
               <button class="toolbar-btn" data-cmd="bold" title="Negrita (Ctrl+B)"><strong>B</strong></button>
               <button class="toolbar-btn" data-cmd="italic" title="Cursiva (Ctrl+I)"><em>I</em></button>

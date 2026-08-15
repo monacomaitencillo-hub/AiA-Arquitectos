@@ -32,6 +32,7 @@ const state = {
   currentPageId: null,
   autosaveTimer: null,
   isDirty:     false,
+  antecedentes: { fecha: '', unidades: null, encargados: [], m2: [] },
 };
 
 // Predefined section colors
@@ -67,6 +68,17 @@ const DOM = {
   saveIndicator:     $('save-indicator'),
   editorToolbar:     $('editor-toolbar'),
   editorContent:     $('editor-content'),
+  // Antecedentes
+  antFecha:          $('ant-fecha'),
+  antUnidades:       $('ant-unidades'),
+  antEncargadosChips:$('ant-encargados-chips'),
+  antEncargadoInput: $('ant-encargado-input'),
+  antEncargadoAddBtn:$('ant-encargado-add'),
+  antM2List:         $('ant-m2-list'),
+  antM2Label:        $('ant-m2-label'),
+  antM2Valor:        $('ant-m2-valor'),
+  antM2AddBtn:       $('ant-m2-add'),
+  antM2Total:        $('ant-m2-total'),
   // Resumen diario
   resumenModule:         $('resumen-module'),
   resumenSidebar:        $('resumen-sidebar'),
@@ -215,6 +227,7 @@ function initApp() {
 
   initNavigation();
   initEditorToolbar();
+  initAntecedentesPanel();
   loadWiki();
 }
 
@@ -466,6 +479,9 @@ async function loadPage(pageId) {
   DOM.editorContent.contentEditable = canEdit ? 'true' : 'false';
   DOM.editorToolbar.style.display = canEdit ? 'flex' : 'none';
 
+  state.antecedentes = normalizeAntecedentes(page.antecedentes);
+  renderAntecedentesPanel(canEdit);
+
   setSaveIndicator('');
 
   // Update sidebar active state
@@ -509,18 +525,20 @@ async function performAutosave() {
 
   const title   = DOM.pageTitleInput.value.trim() || 'Sin título';
   const content = DOM.editorContent.innerHTML;
+  const antecedentes = state.antecedentes;
 
   try {
     await db.collection('pages').doc(pageId).update({
       title,
       content,
+      antecedentes,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       updatedBy: state.authUser.uid,
     });
 
     // Update local state
     const page = state.pages.find(p => p.id === pageId);
-    if (page) { page.title = title; page.content = content; }
+    if (page) { page.title = title; page.content = content; page.antecedentes = antecedentes; }
 
     // Update sidebar title
     const navEl = document.querySelector(`.page-item[data-page-id="${pageId}"] .page-title-nav`);
@@ -605,6 +623,142 @@ function openInsertDateModal() {
     scheduleAutosave();
     closeModal();
     DOM.editorContent.focus();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WIKI — ANTECEDENTES PANEL (ficha fija por página: fecha, encargados, m², unidades)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function normalizeAntecedentes(raw) {
+  return {
+    fecha: raw?.fecha || '',
+    unidades: (raw?.unidades === 0 || raw?.unidades) ? Number(raw.unidades) : null,
+    encargados: Array.isArray(raw?.encargados) ? raw.encargados.slice() : [],
+    m2: Array.isArray(raw?.m2)
+      ? raw.m2.map(x => ({ label: x.label || '', valor: Number(x.valor) || 0 }))
+      : [],
+  };
+}
+
+function renderAntecedentesPanel(canEdit) {
+  const a = state.antecedentes;
+
+  DOM.antFecha.value = a.fecha || '';
+  DOM.antFecha.disabled = !canEdit;
+
+  DOM.antUnidades.value = a.unidades ?? '';
+  DOM.antUnidades.disabled = !canEdit;
+
+  DOM.antEncargadoInput.disabled = !canEdit;
+  DOM.antEncargadoAddBtn.style.display = canEdit ? '' : 'none';
+  DOM.antEncargadoInput.style.display = canEdit ? '' : 'none';
+
+  DOM.antM2Label.disabled = !canEdit;
+  DOM.antM2Valor.disabled = !canEdit;
+  DOM.antM2AddBtn.style.display = canEdit ? '' : 'none';
+  DOM.antM2Label.style.display = canEdit ? '' : 'none';
+  DOM.antM2Valor.style.display = canEdit ? '' : 'none';
+
+  renderEncargadosChips(canEdit);
+  renderM2List(canEdit);
+}
+
+function renderEncargadosChips(canEdit) {
+  const list = state.antecedentes.encargados;
+  DOM.antEncargadosChips.innerHTML = list.length
+    ? list.map((name, i) => `
+      <span class="ant-chip">
+        ${escHtml(name)}
+        ${canEdit ? `<button type="button" class="ant-chip-remove" data-index="${i}" title="Quitar">×</button>` : ''}
+      </span>
+    `).join('')
+    : '<span class="ant-empty-hint">Sin encargados</span>';
+
+  DOM.antEncargadosChips.querySelectorAll('.ant-chip-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.antecedentes.encargados.splice(parseInt(btn.dataset.index, 10), 1);
+      renderEncargadosChips(true);
+      saveAntecedentesNow();
+    });
+  });
+}
+
+function addEncargado() {
+  const name = DOM.antEncargadoInput.value.trim();
+  if (!name) return;
+  state.antecedentes.encargados.push(name);
+  DOM.antEncargadoInput.value = '';
+  renderEncargadosChips(true);
+  saveAntecedentesNow();
+  DOM.antEncargadoInput.focus();
+}
+
+function renderM2List(canEdit) {
+  const list = state.antecedentes.m2;
+  DOM.antM2List.innerHTML = list.length
+    ? list.map((item, i) => `
+      <div class="ant-m2-row">
+        <span class="ant-m2-label">${escHtml(item.label || 'Sin etiqueta')}</span>
+        <span class="ant-m2-valor">${item.valor.toLocaleString('es-AR')} m²</span>
+        ${canEdit ? `<button type="button" class="ant-m2-remove" data-index="${i}" title="Quitar">×</button>` : ''}
+      </div>
+    `).join('')
+    : '<span class="ant-empty-hint">Sin datos de m²</span>';
+
+  DOM.antM2List.querySelectorAll('.ant-m2-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.antecedentes.m2.splice(parseInt(btn.dataset.index, 10), 1);
+      renderM2List(true);
+      saveAntecedentesNow();
+    });
+  });
+
+  const total = list.reduce((sum, x) => sum + (x.valor || 0), 0);
+  DOM.antM2Total.textContent = list.length ? `Total: ${total.toLocaleString('es-AR')} m²` : '';
+}
+
+function addM2() {
+  const label = DOM.antM2Label.value.trim();
+  const valor = parseFloat(DOM.antM2Valor.value);
+  if (!valor || valor <= 0) return;
+  state.antecedentes.m2.push({ label, valor });
+  DOM.antM2Label.value = '';
+  DOM.antM2Valor.value = '';
+  renderM2List(true);
+  saveAntecedentesNow();
+  DOM.antM2Label.focus();
+}
+
+// Guarda de inmediato (sin el debounce de 1.2s de scheduleAutosave) para
+// acciones puntuales de lista (agregar/quitar) donde el usuario espera que
+// quede guardado ya mismo, incluso si recarga la página al toque.
+function saveAntecedentesNow() {
+  clearTimeout(state.autosaveTimer);
+  setSaveIndicator('saving');
+  performAutosave();
+}
+
+function initAntecedentesPanel() {
+  DOM.antFecha.addEventListener('change', () => {
+    state.antecedentes.fecha = DOM.antFecha.value;
+    saveAntecedentesNow();
+  });
+
+  DOM.antUnidades.addEventListener('input', () => {
+    const v = DOM.antUnidades.value;
+    state.antecedentes.unidades = v === '' ? null : Number(v);
+    scheduleAutosave();
+  });
+
+  DOM.antEncargadoAddBtn.addEventListener('click', addEncargado);
+  DOM.antEncargadoInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); addEncargado(); }
+  });
+
+  DOM.antM2AddBtn.addEventListener('click', addM2);
+  DOM.antM2Valor.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); addM2(); }
   });
 }
 
@@ -824,15 +978,17 @@ function openCreatePageModal(sectionId) {
       const maxOrder = state.pages.filter(p => p.sectionId === sectionId).reduce((m, p) => Math.max(m, p.order || 0), 0);
       const fechaCapitalizada = formatDayLabel(parseDateInputValue(dateValue));
       const initialContent = `<h2>${fechaCapitalizada}</h2><p><br></p>`;
+      const initialAntecedentes = normalizeAntecedentes({ fecha: dateValue });
       const docRef = await db.collection('pages').add({
         sectionId,
         title,
         content: initialContent,
+        antecedentes: initialAntecedentes,
         order: maxOrder + 1,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedBy: state.authUser.uid,
       });
-      const newPage = { id: docRef.id, sectionId, title, content: initialContent, order: maxOrder + 1 };
+      const newPage = { id: docRef.id, sectionId, title, content: initialContent, antecedentes: initialAntecedentes, order: maxOrder + 1 };
       state.pages.push(newPage);
       closeModal();
       renderWikiSidebar();

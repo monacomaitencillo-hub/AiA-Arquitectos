@@ -1169,7 +1169,13 @@ function splitPageIntoEntries(page) {
   return entries;
 }
 
-// Groups every dated entry from every accessible section/page into days.
+// Groups the current dated entry of every accessible section/page into days.
+//
+// Una página puede acumular varios bloques fechados a lo largo del tiempo
+// (cada "Insertar fecha" agrega uno nuevo al final sin borrar los previos).
+// Para el Resumen solo interesa el estado actual de cada página: se toma
+// únicamente su bloque con la fecha más reciente, así al cambiar la fecha
+// en una página deja de aparecer la fecha vieja junto a la nueva.
 function buildDailyData() {
   const sections = getAccessibleSections();
   const sectionById = Object.fromEntries(sections.map(s => [s.id, s]));
@@ -1179,14 +1185,17 @@ function buildDailyData() {
     const section = sectionById[page.sectionId];
     if (!section) return; // sección no accesible para este usuario
 
-    splitPageIntoEntries(page).forEach(seg => {
-      const key = dateKey(seg.date);
-      if (!daysMap.has(key)) {
-        daysMap.set(key, { key, date: seg.date, entries: [] });
-      }
-      daysMap.get(key).entries.push({
-        section, page, dateLabel: seg.dateLabel, html: seg.html,
-      });
+    const entries = splitPageIntoEntries(page);
+    if (entries.length === 0) return;
+
+    const latest = entries.reduce((a, b) => (b.date > a.date ? b : a));
+
+    const key = dateKey(latest.date);
+    if (!daysMap.has(key)) {
+      daysMap.set(key, { key, date: latest.date, entries: [] });
+    }
+    daysMap.get(key).entries.push({
+      section, page, dateLabel: latest.dateLabel, html: latest.html,
     });
   });
 

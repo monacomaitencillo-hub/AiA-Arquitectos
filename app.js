@@ -68,6 +68,9 @@ const DOM = {
   saveIndicator:     $('save-indicator'),
   editorToolbar:     $('editor-toolbar'),
   editorContent:     $('editor-content'),
+  textColorBtn:      $('text-color-btn'),
+  textColorPopover:  $('text-color-popover'),
+  textColorSwatch:   $('text-color-swatch'),
   // Antecedentes
   antComuna:         $('ant-comuna'),
   antUnidades:       $('ant-unidades'),
@@ -568,6 +571,11 @@ function initEditorToolbar() {
         return;
       }
 
+      if (btn.id === 'text-color-btn') {
+        DOM.textColorPopover.classList.toggle('hidden');
+        return;
+      }
+
       const cmd = btn.dataset.cmd;
       const val = btn.dataset.val || null;
 
@@ -581,6 +589,25 @@ function initEditorToolbar() {
       }
       DOM.editorContent.focus();
     });
+  });
+
+  // Color de texto: click en un swatch aplica el color a la selección
+  DOM.textColorPopover.querySelectorAll('.color-swatch').forEach(swatch => {
+    swatch.addEventListener('click', e => {
+      e.preventDefault();
+      const color = swatch.dataset.color;
+      document.execCommand('foreColor', false, color || 'inherit');
+      DOM.textColorSwatch.style.borderBottomColor = color || '#e03131';
+      DOM.textColorPopover.classList.add('hidden');
+      DOM.editorContent.focus();
+    });
+  });
+
+  document.addEventListener('click', e => {
+    if (!DOM.textColorPopover.classList.contains('hidden') &&
+        !e.target.closest('.toolbar-color-wrap')) {
+      DOM.textColorPopover.classList.add('hidden');
+    }
   });
 
   // Listen for content changes

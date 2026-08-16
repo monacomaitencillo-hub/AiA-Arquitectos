@@ -138,6 +138,22 @@
               <button class="toolbar-btn" data-cmd="italic" title="Cursiva (Ctrl+I)"><em>I</em></button>
               <button class="toolbar-btn" data-cmd="underline" title="Subrayado (Ctrl+U)"><u>U</u></button>
               <button class="toolbar-btn" data-cmd="strikeThrough" title="Tachado"><s>S</s></button>
+              <span class="toolbar-color-wrap">
+                <button class="toolbar-btn" id="text-color-btn" type="button" title="Color de texto">
+                  <span id="text-color-swatch" class="text-color-swatch-icon">A</span>
+                </button>
+                <div id="text-color-popover" class="color-popover hidden">
+                  <button type="button" class="color-swatch color-swatch-none" data-color="" title="Quitar color"></button>
+                  <button type="button" class="color-swatch" data-color="#e03131" style="background:#e03131" title="Rojo"></button>
+                  <button type="button" class="color-swatch" data-color="#f08c00" style="background:#f08c00" title="Naranja"></button>
+                  <button type="button" class="color-swatch" data-color="#f5c211" style="background:#f5c211" title="Amarillo"></button>
+                  <button type="button" class="color-swatch" data-color="#2f9e44" style="background:#2f9e44" title="Verde"></button>
+                  <button type="button" class="color-swatch" data-color="#1971c2" style="background:#1971c2" title="Azul"></button>
+                  <button type="button" class="color-swatch" data-color="#7048e8" style="background:#7048e8" title="Violeta"></button>
+                  <button type="button" class="color-swatch" data-color="#e64980" style="background:#e64980" title="Rosa"></button>
+                  <button type="button" class="color-swatch" data-color="#495057" style="background:#495057" title="Gris"></button>
+                </div>
+              </span>
               <span class="toolbar-sep"></span>
               <button class="toolbar-btn" data-cmd="formatBlock" data-val="h1" title="Título 1">H1</button>
               <button class="toolbar-btn" data-cmd="formatBlock" data-val="h2" title="Título 2">H2</button>

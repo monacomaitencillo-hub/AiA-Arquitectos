@@ -383,6 +383,29 @@ a:hover { text-decoration: underline; }
   width: 1px; height: 18px;
   background: var(--border); margin: 0 4px; flex-shrink: 0;
 }
+.toolbar-color-wrap { position: relative; display: inline-flex; }
+.text-color-swatch-icon {
+  font-weight: 700; border-bottom: 3px solid #e03131; padding: 0 1px;
+}
+.color-popover {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 20;
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;
+  padding: 8px; border-radius: 8px;
+  background: var(--bg); border: 1px solid var(--border);
+  box-shadow: 0 4px 16px rgba(0,0,0,.15);
+}
+.color-popover.hidden { display: none; }
+.color-swatch {
+  width: 20px; height: 20px; border-radius: 5px;
+  border: 1px solid var(--border); cursor: pointer;
+  transition: transform .1s;
+}
+.color-swatch:hover { transform: scale(1.12); }
+.color-swatch-none {
+  background:
+    linear-gradient(to top right, transparent 46%, #e03131 48%, #e03131 52%, transparent 54%),
+    var(--bg);
+}
 
 /* Editor content */
 #editor-content {

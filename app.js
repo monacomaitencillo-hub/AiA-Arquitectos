@@ -1073,7 +1073,7 @@ async function confirmDeletePage(pageId) {
 
 const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 const DIAS_ES  = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
-const DATE_HEADING_RE = /(\d{1,2})\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+de\s+(\d{4})/i;
+const DATE_HEADING_RE = /(\d{1,2})\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)(?:\s+de)?\s+(\d{4})/i;
 
 const resumenState = {
   weeks: [],      // [{ key, monday, sunday, entries: [...] }], más reciente primero
@@ -1143,12 +1143,14 @@ function stripResolvedContent(html) {
   return tmp.innerHTML;
 }
 
-// Lee la fecha "D de MES de AAAA" del <h2> de cada entrada. Un chunk sin
-// encabezado de fecha reconocible (nunca se le insertó fecha, o no matchea
-// el formato) no tiene una fecha real que mostrar y se descarta del Resumen
-// — no se usa como respaldo la fecha de última edición, porque eso hacía
-// aparecer contenido bajo una fecha que no es la que está puesta en la
-// página.
+// Lee la fecha "D de MES [de] AAAA" del encabezado (H1, H2 o H3 — la fecha
+// se puede insertar con el botón de calendario, que usa H2, o el usuario
+// puede haberla escrito a mano con cualquiera de los tres) de cada entrada.
+// Un chunk sin encabezado de fecha reconocible (nunca se le insertó fecha,
+// o no matchea el formato) no tiene una fecha real que mostrar y se
+// descarta del Resumen — no se usa como respaldo la fecha de última
+// edición, porque eso hacía aparecer contenido bajo una fecha que no es la
+// que está puesta en la página.
 function splitPageIntoEntries(page) {
   const html = page.content || '';
   if (!html.trim()) return [];
@@ -1157,10 +1159,10 @@ function splitPageIntoEntries(page) {
   const entries = [];
 
   chunks.forEach(chunk => {
-    const h2Match = chunk.match(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
-    if (!h2Match) return;
+    const headingMatch = chunk.match(/<h[1-3][^>]*>([\s\S]*?)<\/h[1-3]>/i);
+    if (!headingMatch) return;
 
-    const rawLabel = h2Match[1].replace(/<[^>]+>/g, '').trim();
+    const rawLabel = headingMatch[1].replace(/<[^>]+>/g, '').trim();
     const dm = rawLabel.match(DATE_HEADING_RE);
     if (!dm) return;
 
@@ -1170,7 +1172,7 @@ function splitPageIntoEntries(page) {
     const date  = new Date(year, month, day);
     if (isNaN(date.getTime())) return;
 
-    const bodyHtml = chunk.slice(h2Match.index + h2Match[0].length);
+    const bodyHtml = chunk.slice(headingMatch.index + headingMatch[0].length);
     const visibleHtml = stripResolvedContent(bodyHtml);
 
     const isEmpty = visibleHtml

@@ -166,13 +166,13 @@
       <!-- ── RESUMEN MODULE ──────────────────────────────────────────── -->
       <div id="resumen-module" class="module">
 
-        <!-- Fechas sidebar (navegación rápida hacia una fecha del resumen continuo) -->
+        <!-- Weeks sidebar -->
         <div id="resumen-sidebar">
           <div class="wiki-sidebar-header">
-            <span>Fechas</span>
+            <span>Semanas</span>
           </div>
-          <div id="resumen-days-list">
-            <div class="empty-state" id="resumen-days-empty">
+          <div id="resumen-weeks-list">
+            <div class="empty-state" id="resumen-weeks-empty">
               <p>No hay resúmenes fechados aún.</p>
             </div>
           </div>
@@ -188,22 +188,24 @@
               <line x1="8" y1="2" x2="8" y2="6"/>
               <line x1="3" y1="10" x2="21" y2="10"/>
             </svg>
-            <span>No hay resúmenes fechados aún</span>
+            <span>Seleccioná una semana para ver su resumen</span>
           </div>
 
           <div id="resumen-report-container" class="hidden">
             <div id="resumen-toolbar">
               <div class="resumen-toolbar-title">
-                <span id="resumen-day-label">Resumen de reuniones</span>
-                <span id="resumen-day-meta"></span>
+                <span id="resumen-week-label"></span>
+                <span id="resumen-week-meta"></span>
               </div>
               <div class="resumen-toolbar-actions">
+                <button class="btn-sm js-week-prev" id="resumen-prev-btn" title="Semana anterior">← Anterior</button>
+                <button class="btn-sm js-week-next" id="resumen-next-btn" title="Semana siguiente">Siguiente →</button>
                 <button class="btn-sm primary" id="resumen-print-btn">🖨️ Imprimir</button>
               </div>
             </div>
 
             <div id="resumen-report">
-              <!-- Filled dinámicamente: una sección por cada fecha encontrada, en un solo scroll -->
+              <!-- Filled dinámicamente: la semana seleccionada, agrupada por día -->
             </div>
           </div>
 

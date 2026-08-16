@@ -328,14 +328,17 @@ a:hover { text-decoration: underline; }
 }
 .ant-field input[type="date"],
 .ant-field input[type="number"],
-.ant-field input[type="text"] {
+.ant-field input[type="text"],
+.ant-field select {
   border: 1px solid var(--border); border-radius: var(--radius);
   padding: 6px 8px; font-size: 13px; background: var(--bg); color: var(--text);
 }
-.ant-field input:focus {
+.ant-field input:focus,
+.ant-field select:focus {
   outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,.08);
 }
-.ant-field input:disabled { color: var(--text-muted); background: var(--sidebar-hover); }
+.ant-field input:disabled,
+.ant-field select:disabled { color: var(--text-muted); background: var(--sidebar-hover); }
 .ant-add-row { display: flex; gap: 6px; }
 .ant-add-row input { flex: 1; min-width: 0; }
 .ant-add-row .btn-sm { flex-shrink: 0; padding: 5px 10px; font-size: 12px; }
@@ -406,8 +409,27 @@ a:hover { text-decoration: underline; }
   padding-left: 14px; color: var(--text-muted); margin: 0 0 8px;
 }
 
+/* Task items (checklist con prioridad, usado en Reuniones y en el Resumen) */
+.task-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 3px 0; margin: 0 0 4px;
+}
+.task-checkbox { flex-shrink: 0; width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); }
+.task-text { flex: 1; min-width: 0; }
+.task-item.task-done .task-text { text-decoration: line-through; color: var(--text-muted); }
+.task-priority-tag {
+  flex-shrink: 0; font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .03em; padding: 2px 8px; border-radius: 99px; cursor: pointer;
+  border: none; font-family: inherit;
+}
+.task-priority-tag[data-priority="alta"]  { background: var(--danger-light); color: var(--danger); }
+.task-priority-tag[data-priority="media"] { background: #fef3c7; color: var(--warning); }
+.task-priority-tag[data-priority="baja"]  { background: var(--accent-light); color: var(--accent); }
+.task-item.task-done .task-priority-tag { opacity: .5; }
+.resumen-entry-body .task-priority-tag { cursor: default; }
+
 /* ═══════════════════════════════════════════════════════════════════════════ */
-/* RESUMEN DIARIO MODULE                                                       */
+/* RESUMEN MODULE                                                              */
 /* ═══════════════════════════════════════════════════════════════════════════ */
 #resumen-module { flex-direction: row; }
 

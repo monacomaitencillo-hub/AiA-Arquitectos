@@ -1,7 +1,11 @@
 param(
-    [int]$Port = 5500,
+    [int]$Port = 0,
     [string]$Root = $PSScriptRoot
 )
+
+if ($Port -eq 0) {
+    if ($env:PORT) { $Port = [int]$env:PORT } else { $Port = 5500 }
+}
 
 $listener = New-Object System.Net.HttpListener
 $listener.Prefixes.Add("http://localhost:$Port/")

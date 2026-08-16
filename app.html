@@ -35,7 +35,7 @@
         <span class="module-nav-icon">📄</span>Reuniones
       </button>
       <button class="module-nav-btn" data-module="resumen">
-        <span class="module-nav-icon">🗓️</span>Resumen diario
+        <span class="module-nav-icon">🗓️</span>Resumen
       </button>
       <button class="module-nav-btn hidden" data-module="admin" id="admin-nav-btn">
         <span class="module-nav-icon">⚙️</span>Administración
@@ -96,7 +96,19 @@
 
                 <div class="ant-field">
                   <label>Comuna</label>
-                  <input type="text" id="ant-comuna" placeholder="Ej. Comuna 14" maxlength="60" />
+                  <select id="ant-comuna">
+                    <option value="">-- Seleccionar --</option>
+                    <option value="Arica">Arica</option>
+                    <option value="Iquique">Iquique</option>
+                    <option value="Antofagasta">Antofagasta</option>
+                    <option value="Calama">Calama</option>
+                    <option value="La Serena">La Serena</option>
+                    <option value="Coquimbo">Coquimbo</option>
+                    <option value="Valparaíso">Valparaíso</option>
+                    <option value="Quilpué">Quilpué</option>
+                    <option value="Santiago">Santiago</option>
+                    <option value="Machalí">Machalí</option>
+                  </select>
                 </div>
 
                 <div class="ant-field">
@@ -135,6 +147,7 @@
               <button class="toolbar-btn" data-cmd="insertUnorderedList" title="Lista con viñetas">• Lista</button>
               <button class="toolbar-btn" data-cmd="insertOrderedList" title="Lista numerada">1. Lista</button>
               <button class="toolbar-btn" id="insert-date-btn" title="Insertar nueva fecha con calendario">📅 Fecha</button>
+              <button class="toolbar-btn" id="insert-task-btn" title="Insertar tarea con prioridad">☑ Tarea</button>
               <span class="toolbar-sep"></span>
               <button class="toolbar-btn" data-cmd="createLink" title="Insertar enlace">🔗</button>
               <button class="toolbar-btn" data-cmd="insertHorizontalRule" title="Separador horizontal">—</button>
@@ -150,7 +163,7 @@
         </div><!-- /wiki-editor-area -->
       </div><!-- /wiki-module -->
 
-      <!-- ── RESUMEN DIARIO MODULE ───────────────────────────────────── -->
+      <!-- ── RESUMEN MODULE ──────────────────────────────────────────── -->
       <div id="resumen-module" class="module">
 
         <!-- Days sidebar -->

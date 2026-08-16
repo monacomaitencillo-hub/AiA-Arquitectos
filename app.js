@@ -75,7 +75,7 @@ const DOM = {
   antEncargadosChips:$('ant-encargados-chips'),
   antEncargadoInput: $('ant-encargado-input'),
   antEncargadoAddBtn:$('ant-encargado-add'),
-  // Resumen diario
+  // Resumen
   resumenModule:         $('resumen-module'),
   resumenSidebar:        $('resumen-sidebar'),
   resumenDaysList:       $('resumen-days-list'),
@@ -563,6 +563,11 @@ function initEditorToolbar() {
         return;
       }
 
+      if (btn.id === 'insert-task-btn') {
+        insertTask();
+        return;
+      }
+
       const cmd = btn.dataset.cmd;
       const val = btn.dataset.val || null;
 
@@ -590,6 +595,51 @@ function initEditorToolbar() {
       if (e.key === 'u') { e.preventDefault(); document.execCommand('underline'); }
     }
   });
+
+  // Tareas: tildar casillero = resuelta (se tacha y se oculta del Resumen);
+  // click en la etiqueta = rota la prioridad Alta → Media → Baja.
+  DOM.editorContent.addEventListener('click', e => {
+    const checkbox = e.target.closest('.task-checkbox');
+    if (checkbox) {
+      const item = checkbox.closest('.task-item');
+      const done = checkbox.checked;
+      item.classList.toggle('task-done', done);
+      checkbox.toggleAttribute('checked', done);
+      scheduleAutosave();
+      return;
+    }
+
+    const tag = e.target.closest('.task-priority-tag');
+    if (tag) {
+      const order = ['alta', 'media', 'baja'];
+      const next = order[(order.indexOf(tag.dataset.priority) + 1) % order.length];
+      tag.dataset.priority = next;
+      tag.textContent = capitalizeFirst(next);
+      tag.closest('.task-item').dataset.priority = next;
+      scheduleAutosave();
+    }
+  });
+}
+
+// Inserta un ítem de tarea (casillero + texto + prioridad) en la posición
+// del cursor. Tildar el casillero la marca resuelta; la etiqueta de
+// prioridad rota entre Alta/Media/Baja al clickearla.
+function insertTask() {
+  const tempId = 'tmp-task-' + Date.now();
+  const html = `<div class="task-item" data-priority="media"><input type="checkbox" class="task-checkbox"><span class="task-text" id="${tempId}">Nueva tarea</span><button type="button" class="task-priority-tag" data-priority="media">Media</button></div><p><br></p>`;
+  document.execCommand('insertHTML', false, html);
+
+  const textEl = document.getElementById(tempId);
+  if (textEl) {
+    textEl.removeAttribute('id');
+    const range = document.createRange();
+    range.selectNodeContents(textEl);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+  DOM.editorContent.focus();
+  scheduleAutosave();
 }
 
 // Inserta un nuevo bloque fechado ("<hr><h2>fecha</h2>") al final de la
@@ -644,6 +694,12 @@ function normalizeAntecedentes(raw) {
 function renderAntecedentesPanel(canEdit) {
   const a = state.antecedentes;
 
+  // Si la comuna guardada no está entre las opciones fijas (dato legado en
+  // texto libre), se agrega como opción extra para no perder el valor.
+  if (a.comuna && !Array.from(DOM.antComuna.options).some(o => o.value === a.comuna)) {
+    const legacyOpt = new Option(a.comuna, a.comuna);
+    DOM.antComuna.add(legacyOpt);
+  }
   DOM.antComuna.value = a.comuna || '';
   DOM.antComuna.disabled = !canEdit;
 
@@ -700,7 +756,7 @@ function saveAntecedentesNow() {
 }
 
 function initAntecedentesPanel() {
-  DOM.antComuna.addEventListener('input', () => {
+  DOM.antComuna.addEventListener('change', () => {
     state.antecedentes.comuna = DOM.antComuna.value;
     scheduleAutosave();
   });
@@ -1005,16 +1061,17 @@ async function confirmDeletePage(pageId) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// RESUMEN DIARIO
+// RESUMEN
 // ═══════════════════════════════════════════════════════════════════════════
 //
 // Cada página de Reuniones va acumulando entradas fechadas, separadas por
 // <hr>, donde la primera línea de cada entrada es un <h2> con la fecha en
 // español (insertado automáticamente al crear la página o al abrirla en un
 // día nuevo). Este módulo detecta esas fechas de TODAS las secciones/páginas
-// accesibles y arma, para cada día calendario, un resumen único con todo lo
-// ocurrido ese día (sin importar la sección) — listo para elegir un día
-// puntual e imprimirlo para repartir en la oficina.
+// accesibles y arma, para cada fecha encontrada, un resumen único con todo lo
+// ocurrido ese día (sin importar la sección) — no está atado al día de hoy,
+// sino a las fechas que efectivamente se cargaron en las páginas — listo
+// para elegir una fecha puntual e imprimirla para repartir en la oficina.
 
 const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 const DIAS_ES  = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
@@ -1045,6 +1102,17 @@ function capitalizeFirst(str) {
 function toJsDate(value) {
   if (!value) return null;
   return value.toDate ? value.toDate() : new Date(value);
+}
+
+// Saca del resumen lo tachado (texto suelto con el botón "S") y las tareas
+// ya resueltas (casillero tildado): el resumen es para ver qué queda
+// pendiente, no un historial de todo lo que se escribió.
+function stripResolvedContent(html) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  tmp.querySelectorAll('s, strike, .task-item.task-done').forEach(el => el.remove());
+  tmp.querySelectorAll('.task-checkbox').forEach(cb => cb.disabled = true);
+  return tmp.innerHTML;
 }
 
 // Intenta leer la fecha "D de MES de AAAA" del <h2> de una entrada. Si el
@@ -1091,12 +1159,14 @@ function splitPageIntoEntries(page) {
       // bodyHtml se deja como el chunk completo (no hay <h2> de fecha que recortar)
     }
 
-    const isEmpty = bodyHtml
+    const visibleHtml = stripResolvedContent(bodyHtml);
+
+    const isEmpty = visibleHtml
       .replace(/<(p|div)>\s*(<br\s*\/?>)?\s*<\/(p|div)>/gi, '')
       .replace(/\s|&nbsp;/g, '').length === 0;
     if (isEmpty) return;
 
-    entries.push({ date, dateLabel, html: bodyHtml });
+    entries.push({ date, dateLabel, html: visibleHtml });
   });
 
   return entries;
@@ -1226,7 +1296,7 @@ function renderResumenDay() {
     <div class="resumen-print-header">
       <div class="resumen-print-brand">AiA Arquitectos</div>
       <h1 class="resumen-print-title">${formatDayLabel(day.date)}</h1>
-      <div class="resumen-print-sub">Resumen diario de reuniones · Generado el ${generadoLabel}</div>
+      <div class="resumen-print-sub">Resumen de reuniones · Generado el ${generadoLabel}</div>
     </div>
     ${entriesHtml || '<div class="empty-state"><p>Sin entradas para este día.</p></div>'}
   `;

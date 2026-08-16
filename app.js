@@ -1143,14 +1143,37 @@ function stripResolvedContent(html) {
   return tmp.innerHTML;
 }
 
-// Lee la fecha "D de MES [de] AAAA" del encabezado (H1, H2 o H3 — la fecha
-// se puede insertar con el botón de calendario, que usa H2, o el usuario
-// puede haberla escrito a mano con cualquiera de los tres) de cada entrada.
-// Un chunk sin encabezado de fecha reconocible (nunca se le insertó fecha,
-// o no matchea el formato) no tiene una fecha real que mostrar y se
-// descarta del Resumen — no se usa como respaldo la fecha de última
-// edición, porque eso hacía aparecer contenido bajo una fecha que no es la
-// que está puesta en la página.
+// Busca la fecha "D de MES [de] AAAA" de un bloque. Primero intenta un
+// encabezado (H1–H6: la fecha se puede insertar con el botón de calendario,
+// que usa H2, o el usuario puede haberla escrito a mano con cualquier
+// tamaño de título) — eso además indica dónde termina el título y empieza
+// el cuerpo. Si no hay ningún encabezado con fecha, busca el mismo patrón
+// en cualquier parte del texto del bloque (alguien la escribió en un
+// párrafo suelto, en negrita, etc., sin usar los botones de encabezado).
+function extractChunkDate(chunk) {
+  const headingMatch = chunk.match(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/i);
+  if (headingMatch) {
+    const label = headingMatch[1].replace(/<[^>]+>/g, '').trim();
+    const dm = label.match(DATE_HEADING_RE);
+    if (dm) {
+      return { dm, dateLabel: label, bodyHtml: chunk.slice(headingMatch.index + headingMatch[0].length) };
+    }
+  }
+
+  const plainText = chunk.replace(/<[^>]+>/g, ' ');
+  const dm = plainText.match(DATE_HEADING_RE);
+  if (dm) {
+    return { dm, dateLabel: dm[0].trim(), bodyHtml: chunk };
+  }
+
+  return null;
+}
+
+// Un chunk sin ninguna fecha reconocible (nunca se le insertó fecha, o no
+// matchea el formato) no tiene una fecha real que mostrar y se descarta del
+// Resumen — no se usa como respaldo la fecha de última edición, porque eso
+// hacía aparecer contenido bajo una fecha que no es la que está puesta en
+// la página.
 function splitPageIntoEntries(page) {
   const html = page.content || '';
   if (!html.trim()) return [];
@@ -1159,20 +1182,16 @@ function splitPageIntoEntries(page) {
   const entries = [];
 
   chunks.forEach(chunk => {
-    const headingMatch = chunk.match(/<h[1-3][^>]*>([\s\S]*?)<\/h[1-3]>/i);
-    if (!headingMatch) return;
+    const found = extractChunkDate(chunk);
+    if (!found) return;
 
-    const rawLabel = headingMatch[1].replace(/<[^>]+>/g, '').trim();
-    const dm = rawLabel.match(DATE_HEADING_RE);
-    if (!dm) return;
-
+    const { dm, dateLabel, bodyHtml } = found;
     const day   = parseInt(dm[1], 10);
     const month = MESES_ES.indexOf(dm[2].toLowerCase());
     const year  = parseInt(dm[3], 10);
     const date  = new Date(year, month, day);
     if (isNaN(date.getTime())) return;
 
-    const bodyHtml = chunk.slice(headingMatch.index + headingMatch[0].length);
     const visibleHtml = stripResolvedContent(bodyHtml);
 
     const isEmpty = visibleHtml
@@ -1180,7 +1199,7 @@ function splitPageIntoEntries(page) {
       .replace(/\s|&nbsp;/g, '').length === 0;
     if (isEmpty) return;
 
-    entries.push({ date, dateLabel: rawLabel, html: visibleHtml });
+    entries.push({ date, dateLabel, html: visibleHtml });
   });
 
   return entries;

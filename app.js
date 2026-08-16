@@ -78,6 +78,7 @@ const DOM = {
   antEncargadosChips:$('ant-encargados-chips'),
   antEncargadoInput: $('ant-encargado-input'),
   antEncargadoAddBtn:$('ant-encargado-add'),
+  antEncargadosDatalist: $('ant-encargados-datalist'),
   // Resumen semanal
   resumenModule:         $('resumen-module'),
   resumenSidebar:        $('resumen-sidebar'),
@@ -741,6 +742,20 @@ function renderAntecedentesPanel(canEdit) {
   DOM.antEncargadoInput.style.display = canEdit ? '' : 'none';
 
   renderEncargadosChips(canEdit);
+  renderEncargadosDatalist();
+}
+
+// Sugerencias del datalist: nombres únicos ya cargados en cualquier página,
+// para no tener que retipear un encargado que se usó antes.
+function renderEncargadosDatalist() {
+  const names = new Set();
+  state.pages.forEach(p => (p.antecedentes?.encargados || []).forEach(n => names.add(n)));
+  state.antecedentes.encargados.forEach(n => names.add(n));
+
+  DOM.antEncargadosDatalist.innerHTML = Array.from(names)
+    .sort((a, b) => a.localeCompare(b, 'es'))
+    .map(n => `<option value="${escHtml(n)}"></option>`)
+    .join('');
 }
 
 function renderEncargadosChips(canEdit) {
@@ -769,6 +784,7 @@ function addEncargado() {
   state.antecedentes.encargados.push(name);
   DOM.antEncargadoInput.value = '';
   renderEncargadosChips(true);
+  renderEncargadosDatalist();
   saveAntecedentesNow();
   DOM.antEncargadoInput.focus();
 }

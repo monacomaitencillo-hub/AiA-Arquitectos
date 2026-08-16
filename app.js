@@ -82,10 +82,7 @@ const DOM = {
   resumenEmptyState:     $('resumen-empty-state'),
   resumenReportContainer:$('resumen-report-container'),
   resumenReport:         $('resumen-report'),
-  resumenDayLabel:       $('resumen-day-label'),
   resumenDayMeta:        $('resumen-day-meta'),
-  resumenPrevBtn:        $('resumen-prev-btn'),
-  resumenNextBtn:        $('resumen-next-btn'),
   resumenPrintBtn:       $('resumen-print-btn'),
   // Admin
   adminModule:       $('admin-module'),
@@ -1068,18 +1065,18 @@ async function confirmDeletePage(pageId) {
 // <hr>, donde la primera línea de cada entrada es un <h2> con la fecha en
 // español (insertado automáticamente al crear la página o al abrirla en un
 // día nuevo). Este módulo detecta esas fechas de TODAS las secciones/páginas
-// accesibles y arma, para cada fecha encontrada, un resumen único con todo lo
-// ocurrido ese día (sin importar la sección) — no está atado al día de hoy,
-// sino a las fechas que efectivamente se cargaron en las páginas — listo
-// para elegir una fecha puntual e imprimirla para repartir en la oficina.
+// accesibles y arma, para cada fecha encontrada, un bloque único con todo lo
+// ocurrido ese día (sin importar la sección). Los bloques se muestran todos
+// juntos en una sola lista continua (más reciente primero) — no está atado
+// al día de hoy, sino a las fechas que efectivamente se cargaron en las
+// páginas — lista para imprimir y repartir en la oficina.
 
 const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 const DIAS_ES  = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
 const DATE_HEADING_RE = /(\d{1,2})\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+de\s+(\d{4})/i;
 
 const resumenState = {
-  days: [],       // [{ key, date, entries: [...] }]
-  currentIndex: -1,
+  days: [],       // [{ key, date, entries: [...] }], más reciente primero
 };
 
 // Clave "AAAA-MM-DD" en hora LOCAL (no usar toISOString: en husos horarios
@@ -1220,20 +1217,12 @@ async function loadResumen() {
 
   resumenState.days = buildDailyData();
 
-  // Mantener el día seleccionado si sigue existiendo; si no, ir al más reciente
-  const prevKey = resumenState.days[resumenState.currentIndex]?.key;
-  let idx = prevKey ? resumenState.days.findIndex(d => d.key === prevKey) : -1;
-  if (idx === -1) idx = resumenState.days.length > 0 ? 0 : -1;
-  resumenState.currentIndex = idx;
-
   renderResumenSidebar();
-  renderResumenDay();
+  renderResumenReport();
 }
 
-function selectResumenDay(index) {
-  resumenState.currentIndex = index;
-  renderResumenSidebar();
-  renderResumenDay();
+function scrollToResumenDay(key) {
+  document.getElementById(`resumen-day-${key}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function renderResumenSidebar() {
@@ -1246,8 +1235,8 @@ function renderResumenSidebar() {
 
   const todayKey = dateKey(new Date());
 
-  list.innerHTML = resumenState.days.map((d, i) => `
-    <div class="resumen-day-item${i === resumenState.currentIndex ? ' active' : ''}" data-index="${i}">
+  list.innerHTML = resumenState.days.map(d => `
+    <div class="resumen-day-item" data-key="${d.key}">
       <span class="resumen-day-name">${formatDayLabel(d.date)}${d.key === todayKey ? ' <span class="resumen-day-tag">Hoy</span>' : ''}</span>
       <span class="resumen-day-count">${d.entries.length} entrada${d.entries.length === 1 ? '' : 's'}</span>
     </div>
@@ -1255,16 +1244,18 @@ function renderResumenSidebar() {
 
   list.querySelectorAll('.resumen-day-item').forEach(el => {
     el.addEventListener('click', () => {
-      selectResumenDay(parseInt(el.dataset.index, 10));
+      scrollToResumenDay(el.dataset.key);
       DOM.resumenSidebar.classList.remove('open');
     });
   });
 }
 
-function renderResumenDay() {
-  const day = resumenState.days[resumenState.currentIndex];
+// Arma el resumen como una única lista continua con todas las fechas
+// encontradas (más reciente primero), en vez de mostrar una fecha a la vez.
+function renderResumenReport() {
+  const days = resumenState.days;
 
-  if (!day) {
+  if (days.length === 0) {
     DOM.resumenEmptyState.classList.remove('hidden');
     DOM.resumenReportContainer.classList.add('hidden');
     return;
@@ -1273,46 +1264,43 @@ function renderResumenDay() {
   DOM.resumenEmptyState.classList.add('hidden');
   DOM.resumenReportContainer.classList.remove('hidden');
 
-  DOM.resumenDayLabel.textContent = formatDayLabel(day.date);
-  const totalSections = new Set(day.entries.map(e => e.section.id)).size;
-  DOM.resumenDayMeta.textContent = `${day.entries.length} entrada${day.entries.length === 1 ? '' : 's'} · ${totalSections} ${totalSections === 1 ? 'sección' : 'secciones'}`;
-
-  DOM.resumenPrevBtn.disabled = resumenState.currentIndex >= resumenState.days.length - 1;
-  DOM.resumenNextBtn.disabled = resumenState.currentIndex <= 0;
+  const totalEntries = days.reduce((sum, d) => sum + d.entries.length, 0);
+  DOM.resumenDayMeta.textContent = `${days.length} fecha${days.length === 1 ? '' : 's'} · ${totalEntries} entrada${totalEntries === 1 ? '' : 's'}`;
 
   const generadoLabel = new Date().toLocaleDateString('es-AR', { year: 'numeric', month: 'long', day: 'numeric' });
 
-  const entriesHtml = day.entries.map(e => `
-    <div class="resumen-entry">
-      <div class="resumen-entry-meta">
-        <span class="resumen-entry-section" style="background:${e.section.color || '#6b7280'}">${escHtml(e.section.name)}</span>
-        <span class="resumen-entry-page">${escHtml(e.page.title || 'Sin título')}</span>
+  const daysHtml = days.map(day => {
+    const totalSections = new Set(day.entries.map(e => e.section.id)).size;
+    const entriesHtml = day.entries.map(e => `
+      <div class="resumen-entry">
+        <div class="resumen-entry-meta">
+          <span class="resumen-entry-section" style="background:${e.section.color || '#6b7280'}">${escHtml(e.section.name)}</span>
+          <span class="resumen-entry-page">${escHtml(e.page.title || 'Sin título')}</span>
+        </div>
+        <div class="resumen-entry-body">${e.html}</div>
       </div>
-      <div class="resumen-entry-body">${e.html}</div>
-    </div>
-  `).join('');
+    `).join('');
+
+    return `
+      <section class="resumen-day-section" id="resumen-day-${day.key}">
+        <div class="resumen-day-section-header">
+          <h2>${formatDayLabel(day.date)}</h2>
+          <span class="resumen-day-section-meta">${day.entries.length} entrada${day.entries.length === 1 ? '' : 's'} · ${totalSections} ${totalSections === 1 ? 'sección' : 'secciones'}</span>
+        </div>
+        ${entriesHtml}
+      </section>
+    `;
+  }).join('');
 
   DOM.resumenReport.innerHTML = `
     <div class="resumen-print-header">
       <div class="resumen-print-brand">AiA Arquitectos</div>
-      <h1 class="resumen-print-title">${formatDayLabel(day.date)}</h1>
-      <div class="resumen-print-sub">Resumen de reuniones · Generado el ${generadoLabel}</div>
+      <h1 class="resumen-print-title">Resumen de reuniones</h1>
+      <div class="resumen-print-sub">Generado el ${generadoLabel}</div>
     </div>
-    ${entriesHtml || '<div class="empty-state"><p>Sin entradas para este día.</p></div>'}
+    ${daysHtml}
   `;
 }
-
-DOM.resumenPrevBtn.addEventListener('click', () => {
-  if (resumenState.currentIndex < resumenState.days.length - 1) {
-    selectResumenDay(resumenState.currentIndex + 1);
-  }
-});
-
-DOM.resumenNextBtn.addEventListener('click', () => {
-  if (resumenState.currentIndex > 0) {
-    selectResumenDay(resumenState.currentIndex - 1);
-  }
-});
 
 DOM.resumenPrintBtn.addEventListener('click', () => {
   window.print();

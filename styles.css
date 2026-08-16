@@ -479,7 +479,6 @@ a:hover { text-decoration: underline; }
 #resumen-day-label { display: block; font-size: 14px; font-weight: 700; color: var(--text); }
 #resumen-day-meta { display: block; font-size: 12px; color: var(--text-muted); margin-top: 1px; }
 .resumen-toolbar-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-#resumen-prev-btn:disabled, #resumen-next-btn:disabled { opacity: .35; cursor: not-allowed; }
 
 #resumen-report {
   flex: 1; overflow-y: auto;
@@ -499,7 +498,17 @@ a:hover { text-decoration: underline; }
 .resumen-print-title { font-size: 22px; font-weight: 700; letter-spacing: -.3px; color: var(--text); }
 .resumen-print-sub { font-size: 12.5px; color: var(--text-muted); margin-top: 6px; }
 
-/* Individual entry within the selected day */
+/* One section per date within the continuous list */
+.resumen-day-section { margin-bottom: 32px; scroll-margin-top: 16px; }
+.resumen-day-section-header {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  padding-bottom: 6px; margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.resumen-day-section-header h2 { font-size: 16px; font-weight: 700; color: var(--text); margin: 0; }
+.resumen-day-section-meta { font-size: 12px; color: var(--text-muted); }
+
+/* Individual entry within a date section */
 .resumen-entry {
   padding: 12px 16px; margin-bottom: 10px;
   background: var(--sidebar-bg); border: 1px solid var(--border); border-radius: var(--radius-lg);

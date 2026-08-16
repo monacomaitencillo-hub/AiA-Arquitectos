@@ -166,10 +166,10 @@
       <!-- ── RESUMEN MODULE ──────────────────────────────────────────── -->
       <div id="resumen-module" class="module">
 
-        <!-- Days sidebar -->
+        <!-- Fechas sidebar (navegación rápida hacia una fecha del resumen continuo) -->
         <div id="resumen-sidebar">
           <div class="wiki-sidebar-header">
-            <span>Días</span>
+            <span>Fechas</span>
           </div>
           <div id="resumen-days-list">
             <div class="empty-state" id="resumen-days-empty">
@@ -188,24 +188,22 @@
               <line x1="8" y1="2" x2="8" y2="6"/>
               <line x1="3" y1="10" x2="21" y2="10"/>
             </svg>
-            <span>Seleccioná un día para ver su resumen</span>
+            <span>No hay resúmenes fechados aún</span>
           </div>
 
           <div id="resumen-report-container" class="hidden">
             <div id="resumen-toolbar">
               <div class="resumen-toolbar-title">
-                <span id="resumen-day-label"></span>
+                <span id="resumen-day-label">Resumen de reuniones</span>
                 <span id="resumen-day-meta"></span>
               </div>
               <div class="resumen-toolbar-actions">
-                <button class="btn-sm js-day-prev" id="resumen-prev-btn" title="Día anterior">← Anterior</button>
-                <button class="btn-sm js-day-next" id="resumen-next-btn" title="Día siguiente">Siguiente →</button>
                 <button class="btn-sm primary" id="resumen-print-btn">🖨️ Imprimir</button>
               </div>
             </div>
 
             <div id="resumen-report">
-              <!-- Filled dynamically -->
+              <!-- Filled dinámicamente: una sección por cada fecha encontrada, en un solo scroll -->
             </div>
           </div>
 

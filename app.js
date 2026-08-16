@@ -1096,11 +1096,6 @@ function capitalizeFirst(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-function toJsDate(value) {
-  if (!value) return null;
-  return value.toDate ? value.toDate() : new Date(value);
-}
-
 // Saca del resumen lo tachado (texto suelto con el botón "S") y las tareas
 // ya resueltas (casillero tildado): el resumen es para ver qué queda
 // pendiente, no un historial de todo lo que se escribió.
@@ -1112,50 +1107,34 @@ function stripResolvedContent(html) {
   return tmp.innerHTML;
 }
 
-// Intenta leer la fecha "D de MES de AAAA" del <h2> de una entrada. Si el
-// encabezado no está o no matchea (se editó, se borró, formato distinto),
-// se usa como respaldo la fecha de última edición de la página, para que
-// cualquier contenido cargado en Reuniones termine apareciendo en el
-// resumen igual, en vez de desaparecer silenciosamente.
+// Lee la fecha "D de MES de AAAA" del <h2> de cada entrada. Un chunk sin
+// encabezado de fecha reconocible (nunca se le insertó fecha, o no matchea
+// el formato) no tiene una fecha real que mostrar y se descarta del Resumen
+// — no se usa como respaldo la fecha de última edición, porque eso hacía
+// aparecer contenido bajo una fecha que no es la que está puesta en la
+// página.
 function splitPageIntoEntries(page) {
   const html = page.content || '';
   if (!html.trim()) return [];
 
   const chunks = html.split(/<hr\s*\/?>/i);
   const entries = [];
-  const fallbackDate = toJsDate(page.updatedAt);
 
   chunks.forEach(chunk => {
-    let date = null;
-    let dateLabel = '';
-    let bodyHtml = chunk;
-
     const h2Match = chunk.match(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
-    if (h2Match) {
-      const rawLabel = h2Match[1].replace(/<[^>]+>/g, '').trim();
-      const dm = rawLabel.match(DATE_HEADING_RE);
-      if (dm) {
-        const day   = parseInt(dm[1], 10);
-        const month = MESES_ES.indexOf(dm[2].toLowerCase());
-        const year  = parseInt(dm[3], 10);
-        const parsed = new Date(year, month, day);
-        if (!isNaN(parsed.getTime())) {
-          date = parsed;
-          dateLabel = rawLabel;
-          bodyHtml = chunk.slice(h2Match.index + h2Match[0].length);
-        }
-      }
-    }
+    if (!h2Match) return;
 
-    if (!date) {
-      if (!fallbackDate) return; // sin encabezado de fecha reconocible ni fecha de edición: no se puede ubicar
-      date = fallbackDate;
-      dateLabel = capitalizeFirst(fallbackDate.toLocaleDateString('es-AR', {
-        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-      }));
-      // bodyHtml se deja como el chunk completo (no hay <h2> de fecha que recortar)
-    }
+    const rawLabel = h2Match[1].replace(/<[^>]+>/g, '').trim();
+    const dm = rawLabel.match(DATE_HEADING_RE);
+    if (!dm) return;
 
+    const day   = parseInt(dm[1], 10);
+    const month = MESES_ES.indexOf(dm[2].toLowerCase());
+    const year  = parseInt(dm[3], 10);
+    const date  = new Date(year, month, day);
+    if (isNaN(date.getTime())) return;
+
+    const bodyHtml = chunk.slice(h2Match.index + h2Match[0].length);
     const visibleHtml = stripResolvedContent(bodyHtml);
 
     const isEmpty = visibleHtml
@@ -1163,7 +1142,7 @@ function splitPageIntoEntries(page) {
       .replace(/\s|&nbsp;/g, '').length === 0;
     if (isEmpty) return;
 
-    entries.push({ date, dateLabel, html: visibleHtml });
+    entries.push({ date, dateLabel: rawLabel, html: visibleHtml });
   });
 
   return entries;

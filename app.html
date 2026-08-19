@@ -155,6 +155,16 @@
                   <button type="button" class="color-swatch" data-color="#495057" style="background:#495057" title="Gris"></button>
                 </div>
               </span>
+              <span class="toolbar-size-wrap">
+                <button class="toolbar-btn" id="font-size-btn" type="button" title="Tamaño de letra">Aa</button>
+                <div id="font-size-popover" class="size-popover hidden">
+                  <button type="button" class="size-option" data-size="12" style="font-size:12px">Pequeño</button>
+                  <button type="button" class="size-option" data-size="" style="font-size:15px">Normal</button>
+                  <button type="button" class="size-option" data-size="19" style="font-size:19px">Grande</button>
+                  <button type="button" class="size-option" data-size="24" style="font-size:24px">Muy grande</button>
+                  <button type="button" class="size-option" data-size="32" style="font-size:32px">Enorme</button>
+                </div>
+              </span>
               <span class="toolbar-sep"></span>
               <button class="toolbar-btn" data-cmd="formatBlock" data-val="h1" title="Título 1">H1</button>
               <button class="toolbar-btn" data-cmd="formatBlock" data-val="h2" title="Título 2">H2</button>
@@ -183,10 +193,10 @@
       <!-- ── RESUMEN MODULE ──────────────────────────────────────────── -->
       <div id="resumen-module" class="module">
 
-        <!-- Weeks sidebar -->
+        <!-- Months sidebar -->
         <div id="resumen-sidebar">
           <div class="wiki-sidebar-header">
-            <span>Semanas</span>
+            <span>Meses</span>
           </div>
           <div id="resumen-weeks-list">
             <div class="empty-state" id="resumen-weeks-empty">
@@ -205,7 +215,7 @@
               <line x1="8" y1="2" x2="8" y2="6"/>
               <line x1="3" y1="10" x2="21" y2="10"/>
             </svg>
-            <span>Seleccioná una semana para ver su resumen</span>
+            <span>Seleccioná un mes para ver su resumen</span>
           </div>
 
           <div id="resumen-report-container" class="hidden">
@@ -215,14 +225,14 @@
                 <span id="resumen-week-meta"></span>
               </div>
               <div class="resumen-toolbar-actions">
-                <button class="btn-sm js-week-prev" id="resumen-prev-btn" title="Semana anterior">← Anterior</button>
-                <button class="btn-sm js-week-next" id="resumen-next-btn" title="Semana siguiente">Siguiente →</button>
+                <button class="btn-sm js-week-prev" id="resumen-prev-btn" title="Mes anterior">← Anterior</button>
+                <button class="btn-sm js-week-next" id="resumen-next-btn" title="Mes siguiente">Siguiente →</button>
                 <button class="btn-sm primary" id="resumen-print-btn">🖨️ Imprimir</button>
               </div>
             </div>
 
             <div id="resumen-report">
-              <!-- Filled dinámicamente: la semana seleccionada, agrupada por día -->
+              <!-- Filled dinámicamente: el mes seleccionado, agrupado por día -->
             </div>
           </div>
 

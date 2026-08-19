@@ -71,6 +71,8 @@ const DOM = {
   textColorBtn:      $('text-color-btn'),
   textColorPopover:  $('text-color-popover'),
   textColorSwatch:   $('text-color-swatch'),
+  fontSizeBtn:       $('font-size-btn'),
+  fontSizePopover:   $('font-size-popover'),
   // Antecedentes
   antComuna:         $('ant-comuna'),
   antUnidades:       $('ant-unidades'),
@@ -79,7 +81,7 @@ const DOM = {
   antEncargadoInput: $('ant-encargado-input'),
   antEncargadoAddBtn:$('ant-encargado-add'),
   antEncargadosDatalist: $('ant-encargados-datalist'),
-  // Resumen semanal
+  // Resumen mensual
   resumenModule:         $('resumen-module'),
   resumenSidebar:        $('resumen-sidebar'),
   resumenWeeksList:      $('resumen-weeks-list'),
@@ -577,6 +579,11 @@ function initEditorToolbar() {
         return;
       }
 
+      if (btn.id === 'font-size-btn') {
+        DOM.fontSizePopover.classList.toggle('hidden');
+        return;
+      }
+
       const cmd = btn.dataset.cmd;
       const val = btn.dataset.val || null;
 
@@ -604,10 +611,24 @@ function initEditorToolbar() {
     });
   });
 
+  // Tamaño de letra: click en una opción aplica el tamaño a la selección
+  DOM.fontSizePopover.querySelectorAll('.size-option').forEach(opt => {
+    opt.addEventListener('click', e => {
+      e.preventDefault();
+      applyFontSize(opt.dataset.size);
+      DOM.fontSizePopover.classList.add('hidden');
+      DOM.editorContent.focus();
+    });
+  });
+
   document.addEventListener('click', e => {
     if (!DOM.textColorPopover.classList.contains('hidden') &&
         !e.target.closest('.toolbar-color-wrap')) {
       DOM.textColorPopover.classList.add('hidden');
+    }
+    if (!DOM.fontSizePopover.classList.contains('hidden') &&
+        !e.target.closest('.toolbar-size-wrap')) {
+      DOM.fontSizePopover.classList.add('hidden');
     }
   });
 
@@ -646,6 +667,20 @@ function initEditorToolbar() {
       tag.closest('.task-item').dataset.priority = next;
       scheduleAutosave();
     }
+  });
+}
+
+// execCommand no tiene un comando directo para un tamaño en píxeles: se
+// envuelve la selección con 'fontSize' (nivel 7, el más raro de encontrar
+// ya puesto) y después se reemplaza cada <font size="7"> resultante por un
+// <span> con el font-size real, o sin estilo si se eligió "Normal".
+function applyFontSize(px) {
+  document.execCommand('fontSize', false, '7');
+  DOM.editorContent.querySelectorAll('font[size="7"]').forEach(el => {
+    const span = document.createElement('span');
+    if (px) span.style.fontSize = px + 'px';
+    while (el.firstChild) span.appendChild(el.firstChild);
+    el.replaceWith(span);
   });
 }
 

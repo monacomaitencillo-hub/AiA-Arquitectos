@@ -690,6 +690,26 @@ a:hover { text-decoration: underline; }
 .section-card-meta { font-size: 12px; color: var(--text-muted); }
 .section-card-actions { display: flex; gap: 6px; }
 
+/* Dropbox links (admin) */
+.dropbox-admin-card {
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 14px 16px; margin-bottom: 10px;
+}
+.dropbox-admin-card-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.dropbox-admin-card-title { font-size: 14px; font-weight: 600; }
+.dropbox-admin-card-footer {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 6px;
+}
+
+/* Dropbox links (module view) */
+.dropbox-area {
+  flex: 1; overflow-y: auto;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+
 /* Activity */
 .activity-row {
   padding: 10px 0; border-bottom: 1px solid var(--border);

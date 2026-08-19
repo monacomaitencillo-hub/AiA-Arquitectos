@@ -29,6 +29,7 @@ const state = {
   userData:    null,   // Firestore /users/{uid} doc
   sections:    [],
   pages:       [],
+  dropboxLinks: {},   // { [linkId]: { name, url, allowedUids } }
   currentPageId: null,
   autosaveTimer: null,
   isDirty:     false,
@@ -39,6 +40,14 @@ const state = {
 const SECTION_COLORS = [
   '#ef4444','#f97316','#eab308','#22c55e',
   '#14b8a6','#3b82f6','#8b5cf6','#ec4899',
+];
+
+// Secciones fijas vinculadas a una carpeta de Dropbox (aia.arq@gmail.com).
+// A diferencia de las secciones de Reuniones, estas son solo dos, fijas,
+// y muestran un botón que abre la carpeta compartida en una pestaña nueva.
+const DROPBOX_LINKS = [
+  { id: 'detalles-constructivos', name: 'Detalles Constructivos', icon: '📐', module: 'detalles', navBtnKey: 'detallesNavBtn', areaKey: 'dropboxAreaDetallesConstructivos' },
+  { id: 'proyectos-permiso',      name: 'Proyectos con Permiso',  icon: '📋', module: 'permisos', navBtnKey: 'permisosNavBtn', areaKey: 'dropboxAreaProyectosPermiso' },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -93,6 +102,12 @@ const DOM = {
   resumenPrevBtn:        $('resumen-prev-btn'),
   resumenNextBtn:        $('resumen-next-btn'),
   resumenPrintBtn:       $('resumen-print-btn'),
+  // Dropbox links (Detalles Constructivos / Proyectos con Permiso)
+  detallesNavBtn:      $('detalles-nav-btn'),
+  permisosNavBtn:      $('permisos-nav-btn'),
+  dropboxAreaDetallesConstructivos: $('dropbox-area-detalles-constructivos'),
+  dropboxAreaProyectosPermiso:      $('dropbox-area-proyectos-permiso'),
+  adminDropboxList:    $('admin-dropbox-list'),
   // Admin
   adminModule:       $('admin-module'),
   adminNavBtn:       $('admin-nav-btn'),
@@ -231,6 +246,7 @@ function initApp() {
   initEditorToolbar();
   initAntecedentesPanel();
   loadWiki();
+  loadDropboxLinks();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -275,6 +291,9 @@ function switchModule(moduleName) {
   if (moduleName === 'resumen') {
     loadResumen();
   }
+  if (moduleName === 'detalles' || moduleName === 'permisos') {
+    renderDropboxModules();
+  }
 }
 
 function switchAdminTab(tabName) {
@@ -290,6 +309,7 @@ function switchAdminTab(tabName) {
 function loadAdminTab(tabName) {
   if (tabName === 'users')    loadAdminUsers();
   if (tabName === 'sections') loadAdminSections();
+  if (tabName === 'dropbox')  loadAdminDropbox();
   if (tabName === 'activity') loadActivity();
 }
 
@@ -1433,6 +1453,70 @@ DOM.resumenPrintBtn.addEventListener('click', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
+// DROPBOX LINKS (Detalles Constructivos / Proyectos con Permiso)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Estas dos secciones no tienen contenido propio en el portal: solo apuntan
+// a una carpeta compartida en el Dropbox de aia.arq@gmail.com. El acceso se
+// controla igual que en las secciones de Reuniones (allowedUids por doc),
+// pero acá cada una vive en un doc fijo de la colección `dropboxLinks`.
+
+async function loadDropboxLinks() {
+  try {
+    const snap = await db.collection('dropboxLinks').get();
+    state.dropboxLinks = Object.fromEntries(snap.docs.map(d => [d.id, d.data()]));
+  } catch (err) {
+    console.error('loadDropboxLinks error:', err);
+  }
+  updateDropboxNavVisibility();
+}
+
+function userHasDropboxAccess(linkId) {
+  const { userData } = state;
+  if (userData.role === 'admin') return true;
+  const link = state.dropboxLinks[linkId];
+  return !!link && Array.isArray(link.allowedUids) && link.allowedUids.includes(userData.uid);
+}
+
+function updateDropboxNavVisibility() {
+  DROPBOX_LINKS.forEach(entry => {
+    DOM[entry.navBtnKey].classList.toggle('hidden', !userHasDropboxAccess(entry.id));
+  });
+}
+
+function renderDropboxModules() {
+  const isAdmin = state.userData.role === 'admin';
+
+  DROPBOX_LINKS.forEach(entry => {
+    const container = DOM[entry.areaKey];
+    const link = state.dropboxLinks[entry.id];
+    const url  = link && link.url;
+
+    if (url) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div style="font-size:40px;line-height:1">${entry.icon}</div>
+          <p style="font-size:16px;font-weight:600;color:var(--text);margin-top:10px">${escHtml(entry.name)}</p>
+          <p>Los archivos se gestionan en Dropbox (aia.arq@gmail.com).</p>
+          <a class="btn-sm primary" style="display:inline-flex;align-items:center;gap:6px;margin-top:12px;text-decoration:none"
+             href="${escHtml(url)}" target="_blank" rel="noopener noreferrer">
+            Abrir en Dropbox ↗
+          </a>
+        </div>
+      `;
+    } else {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div style="font-size:40px;line-height:1">${entry.icon}</div>
+          <p style="font-size:16px;font-weight:600;color:var(--text);margin-top:10px">${escHtml(entry.name)}</p>
+          <p>Todavía no se configuró el enlace de la carpeta de Dropbox.${isAdmin ? ' Configuralo en Administración → Dropbox.' : ' Pedile al administrador que lo configure.'}</p>
+        </div>
+      `;
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ADMIN — USERS TAB
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1725,6 +1809,151 @@ function openManageAccessModal(section, allUsers) {
       if (s) s.allowedUids = checked;
       closeModal();
       loadAdminSections();
+      toast('Accesos actualizados', 'success');
+    } catch (err) {
+      toast('Error: ' + err.message, 'error');
+      closeModal();
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ADMIN — DROPBOX TAB
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function loadAdminDropbox() {
+  DOM.adminDropboxList.innerHTML = '<p style="color:var(--text-muted);font-size:13px">Cargando...</p>';
+
+  try {
+    const [linksSnap, usersSnap] = await Promise.all([
+      db.collection('dropboxLinks').get(),
+      db.collection('users').get(),
+    ]);
+
+    state.dropboxLinks = Object.fromEntries(linksSnap.docs.map(d => [d.id, d.data()]));
+    const users = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    renderAdminDropbox(users);
+    updateDropboxNavVisibility();
+  } catch (err) {
+    DOM.adminDropboxList.innerHTML = `<p style="color:var(--danger)">Error: ${err.message}</p>`;
+  }
+}
+
+function renderAdminDropbox(users) {
+  DOM.adminDropboxList.innerHTML = DROPBOX_LINKS.map(entry => {
+    const link = state.dropboxLinks[entry.id] || {};
+    const allowedUsers = users.filter(u => (link.allowedUids || []).includes(u.uid));
+    const accessLabel  = allowedUsers.length === 0
+      ? '<em style="color:var(--text-muted)">Sin acceso asignado</em>'
+      : allowedUsers.map(u => `<span style="font-size:12px;background:var(--sidebar-bg);padding:2px 6px;border-radius:99px;margin:2px">${escHtml(u.name || u.email)}</span>`).join('');
+
+    return `
+      <div class="dropbox-admin-card" data-link-id="${entry.id}">
+        <div class="dropbox-admin-card-header">
+          <span class="dropbox-admin-card-title">${entry.icon} ${escHtml(entry.name)}</span>
+          <button class="btn-sm js-manage-dropbox-access" data-id="${entry.id}">👥 Accesos</button>
+        </div>
+        <div class="form-group" style="margin:10px 0 4px">
+          <label>Enlace de la carpeta compartida de Dropbox</label>
+          <input type="text" class="js-dropbox-url" data-id="${entry.id}" placeholder="https://www.dropbox.com/scl/fo/..." value="${escHtml(link.url || '')}" />
+        </div>
+        <div class="dropbox-admin-card-footer">
+          <span class="section-card-meta">Acceso: ${accessLabel}</span>
+          <button class="btn-sm primary js-save-dropbox-url" data-id="${entry.id}">Guardar enlace</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  bindAdminDropboxButtons(users);
+}
+
+function bindAdminDropboxButtons(users) {
+  DOM.adminDropboxList.querySelectorAll('.js-save-dropbox-url').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id     = btn.dataset.id;
+      const entry  = DROPBOX_LINKS.find(l => l.id === id);
+      const input  = DOM.adminDropboxList.querySelector(`.js-dropbox-url[data-id="${id}"]`);
+      const url    = input.value.trim();
+      const existing = state.dropboxLinks[id] || {};
+
+      btn.disabled = true;
+      try {
+        await db.collection('dropboxLinks').doc(id).set({
+          name: entry.name,
+          url,
+          allowedUids: existing.allowedUids || [],
+        }, { merge: true });
+        state.dropboxLinks[id] = { ...existing, name: entry.name, url };
+        updateDropboxNavVisibility();
+        renderDropboxModules();
+        toast('Enlace guardado', 'success');
+      } catch (err) {
+        toast('Error: ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
+
+  DOM.adminDropboxList.querySelectorAll('.js-manage-dropbox-access').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id    = btn.dataset.id;
+      const entry = DROPBOX_LINKS.find(l => l.id === id);
+      const link  = state.dropboxLinks[id] || {};
+      openManageDropboxAccessModal(entry, link, users);
+    });
+  });
+}
+
+function openManageDropboxAccessModal(entry, link, allUsers) {
+  const editorViewers = allUsers.filter(u => u.role !== 'admin');
+  const currentUids   = link.allowedUids || [];
+
+  openModal({
+    title: `Accesos — ${entry.name}`,
+    body: `
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">
+        Seleccioná qué usuarios pueden ver esta sección y su enlace de Dropbox.
+        Los administradores siempre tienen acceso.
+      </p>
+      <div class="access-list">
+        ${editorViewers.length === 0
+          ? '<p style="color:var(--text-muted);font-size:13px">No hay usuarios con rol editor o viewer.</p>'
+          : editorViewers.map(u => `
+            <div class="access-item">
+              <input type="checkbox" id="dacc-${u.uid}" value="${u.uid}" ${currentUids.includes(u.uid) ? 'checked' : ''} />
+              <div class="access-item-info">
+                <div class="access-item-name">${escHtml(u.name || u.email)}</div>
+                <div class="access-item-email">${escHtml(u.email)} · <span class="role-badge ${u.role}">${u.role}</span></div>
+              </div>
+            </div>
+          `).join('')
+        }
+      </div>
+    `,
+    footer: `
+      <button class="btn-sm" id="m-cancel-btn">Cancelar</button>
+      <button class="btn-sm primary" id="m-confirm-btn">Guardar accesos</button>
+    `,
+  });
+
+  $('m-cancel-btn').addEventListener('click', closeModal);
+  $('m-confirm-btn').addEventListener('click', async () => {
+    const checked = Array.from(DOM.modalBody.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value);
+
+    $('m-confirm-btn').disabled = true;
+    try {
+      await db.collection('dropboxLinks').doc(entry.id).set({
+        name: entry.name,
+        url: link.url || '',
+        allowedUids: checked,
+      }, { merge: true });
+      state.dropboxLinks[entry.id] = { ...link, name: entry.name, url: link.url || '', allowedUids: checked };
+      closeModal();
+      loadAdminDropbox();
+      updateDropboxNavVisibility();
       toast('Accesos actualizados', 'success');
     } catch (err) {
       toast('Error: ' + err.message, 'error');

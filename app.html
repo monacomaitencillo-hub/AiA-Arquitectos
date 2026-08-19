@@ -37,6 +37,12 @@
       <button class="module-nav-btn" data-module="resumen">
         <span class="module-nav-icon">🗓️</span>Resumen
       </button>
+      <button class="module-nav-btn hidden" data-module="detalles" id="detalles-nav-btn">
+        <span class="module-nav-icon">📐</span>Detalles Constructivos
+      </button>
+      <button class="module-nav-btn hidden" data-module="permisos" id="permisos-nav-btn">
+        <span class="module-nav-icon">📋</span>Proyectos con Permiso
+      </button>
       <button class="module-nav-btn hidden" data-module="admin" id="admin-nav-btn">
         <span class="module-nav-icon">⚙️</span>Administración
       </button>
@@ -239,6 +245,16 @@
         </div><!-- /resumen-report-area -->
       </div><!-- /resumen-module -->
 
+      <!-- ── DETALLES CONSTRUCTIVOS MODULE ──────────────────────────────────────────── -->
+      <div id="detalles-module" class="module">
+        <div id="dropbox-area-detalles-constructivos" class="dropbox-area"></div>
+      </div><!-- /detalles-module -->
+
+      <!-- ── PROYECTOS CON PERMISO MODULE ──────────────────────────────────────────── -->
+      <div id="permisos-module" class="module">
+        <div id="dropbox-area-proyectos-permiso" class="dropbox-area"></div>
+      </div><!-- /permisos-module -->
+
       <!-- ── ADMIN MODULE ──────────────────────────────────────────── -->
       <div id="admin-module" class="module">
 
@@ -247,6 +263,7 @@
           <div class="admin-tabs">
             <button class="tab-btn active" data-tab="users">Usuarios</button>
             <button class="tab-btn" data-tab="sections">Reuniones — Secciones</button>
+            <button class="tab-btn" data-tab="dropbox">Dropbox</button>
             <button class="tab-btn" data-tab="activity">Actividad</button>
           </div>
         </div>
@@ -283,6 +300,14 @@
             <button class="btn-sm primary" id="admin-create-section-btn">+ Crear sección</button>
           </div>
           <div id="admin-sections-list"></div>
+        </div>
+
+        <!-- Tab: Dropbox -->
+        <div id="tab-dropbox" class="admin-tab-content">
+          <div class="content-toolbar">
+            <h3>Carpetas de Dropbox (aia.arq@gmail.com)</h3>
+          </div>
+          <div id="admin-dropbox-list"></div>
         </div>
 
         <!-- Tab: Activity -->

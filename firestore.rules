@@ -36,6 +36,12 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+    // ── Dropbox links collection (Detalles Constructivos / Proyectos con Permiso) ──
+    match /dropboxLinks/{linkId} {
+      allow read: if isActive();
+      allow create, update, delete: if isAdmin();
+    }
+
     // ── Pages collection ────────────────────────────────────────────────────
     match /pages/{pageId} {
       function sectionData() {

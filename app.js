@@ -46,8 +46,8 @@ const SECTION_COLORS = [
 // A diferencia de las secciones de Reuniones, estas son solo dos, fijas,
 // y muestran un botón que abre la carpeta compartida en una pestaña nueva.
 const DROPBOX_LINKS = [
-  { id: 'detalles-constructivos', name: 'Detalles Constructivos', icon: '📐', module: 'detalles', navBtnKey: 'detallesNavBtn', areaKey: 'dropboxAreaDetallesConstructivos' },
-  { id: 'proyectos-permiso',      name: 'Proyectos con Permiso',  icon: '📋', module: 'permisos', navBtnKey: 'permisosNavBtn', areaKey: 'dropboxAreaProyectosPermiso' },
+  { id: 'detalles-constructivos', name: 'Detalles Constructivos', icon: '📐' },
+  { id: 'proyectos-permiso',      name: 'Proyectos con Permiso',  icon: '📋' },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -103,10 +103,11 @@ const DOM = {
   resumenNextBtn:        $('resumen-next-btn'),
   resumenPrintBtn:       $('resumen-print-btn'),
   // Dropbox links (Detalles Constructivos / Proyectos con Permiso)
-  detallesNavBtn:      $('detalles-nav-btn'),
-  permisosNavBtn:      $('permisos-nav-btn'),
-  dropboxAreaDetallesConstructivos: $('dropbox-area-detalles-constructivos'),
-  dropboxAreaProyectosPermiso:      $('dropbox-area-proyectos-permiso'),
+  planosNavBtn:  $('planos-nav-btn'),
+  planosModule:  $('planos-module'),
+  planosSidebar: $('planos-sidebar'),
+  planosList:    $('planos-list'),
+  planosArea:    $('planos-area'),
   adminDropboxList:    $('admin-dropbox-list'),
   // Admin
   adminModule:       $('admin-module'),
@@ -291,7 +292,7 @@ function switchModule(moduleName) {
   if (moduleName === 'resumen') {
     loadResumen();
   }
-  if (moduleName === 'detalles' || moduleName === 'permisos') {
+  if (moduleName === 'planos') {
     renderDropboxModules();
   }
 }
@@ -1453,13 +1454,17 @@ DOM.resumenPrintBtn.addEventListener('click', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// DROPBOX LINKS (Detalles Constructivos / Proyectos con Permiso)
+// PLANOS — enlaces a Dropbox (Detalles Constructivos / Proyectos con Permiso)
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// Estas dos secciones no tienen contenido propio en el portal: solo apuntan
-// a una carpeta compartida en el Dropbox de aia.arq@gmail.com. El acceso se
-// controla igual que en las secciones de Reuniones (allowedUids por doc),
-// pero acá cada una vive en un doc fijo de la colección `dropboxLinks`.
+// "Planos" es un único módulo del menú con una barra lateral (como Reuniones
+// o Resumen) que lista estas entradas fijas. Ninguna tiene contenido propio
+// en el portal: cada una solo apunta a una carpeta compartida en el Dropbox
+// de aia.arq@gmail.com. El acceso se controla igual que en las secciones de
+// Reuniones (allowedUids por doc), pero acá cada una vive en un doc fijo de
+// la colección `dropboxLinks`.
+
+const planosState = { currentId: null };
 
 async function loadDropboxLinks() {
   try {
@@ -1478,42 +1483,84 @@ function userHasDropboxAccess(linkId) {
   return !!link && Array.isArray(link.allowedUids) && link.allowedUids.includes(userData.uid);
 }
 
+function getAccessibleDropboxLinks() {
+  return DROPBOX_LINKS.filter(entry => userHasDropboxAccess(entry.id));
+}
+
+// El botón "Planos" del menú se muestra si el usuario tiene acceso a al
+// menos uno de los enlaces.
 function updateDropboxNavVisibility() {
-  DROPBOX_LINKS.forEach(entry => {
-    DOM[entry.navBtnKey].classList.toggle('hidden', !userHasDropboxAccess(entry.id));
-  });
+  DOM.planosNavBtn.classList.toggle('hidden', getAccessibleDropboxLinks().length === 0);
 }
 
 function renderDropboxModules() {
-  const isAdmin = state.userData.role === 'admin';
+  renderPlanosSidebar();
+  renderPlanosArea();
+}
 
-  DROPBOX_LINKS.forEach(entry => {
-    const container = DOM[entry.areaKey];
-    const link = state.dropboxLinks[entry.id];
-    const url  = link && link.url;
+function renderPlanosSidebar() {
+  const accessible = getAccessibleDropboxLinks();
 
-    if (url) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <div style="font-size:40px;line-height:1">${entry.icon}</div>
-          <p style="font-size:16px;font-weight:600;color:var(--text);margin-top:10px">${escHtml(entry.name)}</p>
-          <p>Los archivos se gestionan en Dropbox (aia.arq@gmail.com).</p>
-          <a class="btn-sm primary" style="display:inline-flex;align-items:center;gap:6px;margin-top:12px;text-decoration:none"
-             href="${escHtml(url)}" target="_blank" rel="noopener noreferrer">
-            Abrir en Dropbox ↗
-          </a>
-        </div>
-      `;
-    } else {
-      container.innerHTML = `
-        <div class="empty-state">
-          <div style="font-size:40px;line-height:1">${entry.icon}</div>
-          <p style="font-size:16px;font-weight:600;color:var(--text);margin-top:10px">${escHtml(entry.name)}</p>
-          <p>Todavía no se configuró el enlace de la carpeta de Dropbox.${isAdmin ? ' Configuralo en Administración → Dropbox.' : ' Pedile al administrador que lo configure.'}</p>
-        </div>
-      `;
-    }
+  if (accessible.length === 0) {
+    DOM.planosList.innerHTML = '<div class="empty-state"><p>No tenés planos asignados.<br>Contactá al administrador.</p></div>';
+    return;
+  }
+
+  // Si no hay selección, o la seleccionada dejó de ser accesible, elegir la primera
+  if (!planosState.currentId || !accessible.some(e => e.id === planosState.currentId)) {
+    planosState.currentId = accessible[0].id;
+  }
+
+  DOM.planosList.innerHTML = accessible.map(entry => `
+    <div class="planos-item${entry.id === planosState.currentId ? ' active' : ''}" data-id="${entry.id}">
+      <span>${entry.icon}</span><span>${escHtml(entry.name)}</span>
+    </div>
+  `).join('');
+
+  DOM.planosList.querySelectorAll('.planos-item').forEach(el => {
+    el.addEventListener('click', () => {
+      planosState.currentId = el.dataset.id;
+      renderPlanosSidebar();
+      renderPlanosArea();
+      DOM.planosSidebar.classList.remove('open');
+    });
   });
+}
+
+function renderPlanosArea() {
+  const container = DOM.planosArea;
+  const isAdmin   = state.userData.role === 'admin';
+  const entry     = DROPBOX_LINKS.find(e => e.id === planosState.currentId);
+
+  if (!entry) {
+    container.innerHTML = '<div class="empty-state"><p>Seleccioná un plano para ver su enlace.</p></div>';
+    return;
+  }
+
+  const link = state.dropboxLinks[entry.id];
+  const url  = link && link.url;
+
+  if (url) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div style="font-size:40px;line-height:1">${entry.icon}</div>
+        <p style="font-size:16px;font-weight:600;color:var(--text);margin-top:10px">${escHtml(entry.name)}</p>
+        <p>Los archivos se gestionan en Dropbox (aia.arq@gmail.com).</p>
+        <a class="btn-sm primary" style="display:inline-flex;align-items:center;gap:6px;margin-top:12px;text-decoration:none"
+           href="${escHtml(url)}" target="_blank" rel="noopener noreferrer">
+          Abrir en Dropbox ↗
+        </a>
+      </div>
+    `;
+  } else {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div style="font-size:40px;line-height:1">${entry.icon}</div>
+        <p style="font-size:16px;font-weight:600;color:var(--text);margin-top:10px">${escHtml(entry.name)}</p>
+        <p>Todavía no se configuró el enlace de la carpeta de Dropbox.${isAdmin ? ' Configuralo en Administración → Dropbox.' : ' Pedile al administrador que lo configure.'}</p>
+      </div>
+    `;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2018,6 +2065,9 @@ DOM.hamburger.addEventListener('click', () => {
   }
   if (DOM.resumenModule.classList.contains('active')) {
     DOM.resumenSidebar.classList.toggle('open');
+  }
+  if (DOM.planosModule.classList.contains('active')) {
+    DOM.planosSidebar.classList.toggle('open');
   }
 });
 

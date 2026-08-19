@@ -37,11 +37,8 @@
       <button class="module-nav-btn" data-module="resumen">
         <span class="module-nav-icon">🗓️</span>Resumen
       </button>
-      <button class="module-nav-btn hidden" data-module="detalles" id="detalles-nav-btn">
-        <span class="module-nav-icon">📐</span>Detalles Constructivos
-      </button>
-      <button class="module-nav-btn hidden" data-module="permisos" id="permisos-nav-btn">
-        <span class="module-nav-icon">📋</span>Proyectos con Permiso
+      <button class="module-nav-btn hidden" data-module="planos" id="planos-nav-btn">
+        <span class="module-nav-icon">📐</span>Planos
       </button>
       <button class="module-nav-btn hidden" data-module="admin" id="admin-nav-btn">
         <span class="module-nav-icon">⚙️</span>Administración
@@ -245,15 +242,19 @@
         </div><!-- /resumen-report-area -->
       </div><!-- /resumen-module -->
 
-      <!-- ── DETALLES CONSTRUCTIVOS MODULE ──────────────────────────────────────────── -->
-      <div id="detalles-module" class="module">
-        <div id="dropbox-area-detalles-constructivos" class="dropbox-area"></div>
-      </div><!-- /detalles-module -->
+      <!-- ── PLANOS MODULE ──────────────────────────────────────────── -->
+      <div id="planos-module" class="module">
 
-      <!-- ── PROYECTOS CON PERMISO MODULE ──────────────────────────────────────────── -->
-      <div id="permisos-module" class="module">
-        <div id="dropbox-area-proyectos-permiso" class="dropbox-area"></div>
-      </div><!-- /permisos-module -->
+        <div id="planos-sidebar">
+          <div class="wiki-sidebar-header">
+            <span>Planos</span>
+          </div>
+          <div id="planos-list"></div>
+        </div>
+
+        <div id="planos-area" class="dropbox-area"></div>
+
+      </div><!-- /planos-module -->
 
       <!-- ── ADMIN MODULE ──────────────────────────────────────────── -->
       <div id="admin-module" class="module">

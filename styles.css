@@ -582,6 +582,29 @@ a:hover { text-decoration: underline; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
+/* PLANOS MODULE                                                               */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+#planos-module { flex-direction: row; }
+
+#planos-sidebar {
+  width: var(--wiki-sidebar-w);
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  flex-shrink: 0; overflow: hidden;
+}
+#planos-list { flex: 1; overflow-y: auto; padding: 4px 8px 16px; }
+
+.planos-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 10px; border-radius: var(--radius);
+  cursor: pointer; transition: background .12s; margin-bottom: 2px;
+  font-size: 13px; color: var(--text); line-height: 1.35;
+}
+.planos-item:hover { background: var(--sidebar-hover); }
+.planos-item.active { background: var(--accent-light); color: var(--accent); font-weight: 600; }
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
 /* ADMIN MODULE                                                                */
 /* ═══════════════════════════════════════════════════════════════════════════ */
 #admin-module { flex-direction: column; overflow-y: auto; }
@@ -901,6 +924,17 @@ a:hover { text-decoration: underline; }
   .resumen-toolbar-actions { justify-content: space-between; }
   .resumen-toolbar-actions .btn-sm { flex: 1; text-align: center; }
 
+  #planos-module { flex-direction: column; }
+
+  #planos-sidebar {
+    position: fixed; top: var(--header-h); left: 0; bottom: 0;
+    z-index: 80; transform: translateX(-100%);
+    width: 260px; border-right: 1px solid var(--border);
+  }
+  #planos-sidebar.open { transform: translateX(0); box-shadow: var(--shadow-lg); }
+
+  #planos-area { width: 100%; }
+
   .admin-tab-content { padding: 16px; }
   .admin-panel-header { padding: 16px 16px 0; }
 
@@ -914,6 +948,7 @@ a:hover { text-decoration: underline; }
   #wiki-sidebar { transform: none !important; }
   #module-sidebar { transform: none !important; }
   #resumen-sidebar { transform: none !important; }
+  #planos-sidebar { transform: none !important; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */

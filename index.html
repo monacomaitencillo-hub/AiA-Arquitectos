@@ -30,6 +30,21 @@
       background: linear-gradient(to bottom, rgba(8,12,20,.9) 0%, transparent 100%);
     }
     .nav-logo { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+    .nav-logo-text { display: flex; flex-direction: column; gap: 6px; }
+    .nav-logo-title {
+      font-family: 'Cormorant Garamond', serif; font-size: 13px;
+      letter-spacing: .2em; text-transform: uppercase;
+      color: rgba(255,255,255,.45); font-weight: 400;
+    }
+    .nav-logo-names {
+      display: flex; flex-direction: column; gap: 2px;
+      padding-top: 3px; border-top: 1px solid rgba(201,167,109,.2);
+    }
+    .nav-logo-names span {
+      font-size: 9px; font-weight: 400; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--gold); opacity: .58;
+      line-height: 1.5; white-space: nowrap;
+    }
     .nav-cta {
       padding: 10px 24px;
       border: 1px solid var(--gold);
@@ -335,6 +350,7 @@
     /* ── RESPONSIVE ───────────────────────────────────────────────────────── */
     @media (max-width: 640px) {
       nav { padding: 16px 20px; }
+      .nav-logo-names span { font-size: 7.5px; letter-spacing: .03em; }
       .hero-content { padding: 0 20px 60px; }
       #servicios, #filosofia, #portal, #numeros, #proyectos { padding: 60px 20px; }
       footer { padding: 32px 20px; }
@@ -363,7 +379,15 @@
       <path d="M66 30 L77 4 L88 30" stroke="#c9a76d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
       <line x1="71" y1="21" x2="83" y2="21" stroke="#c9a76d" stroke-width="2" stroke-linecap="round"/>
     </svg>
-    <span style="font-family:'Cormorant Garamond',serif;font-size:13px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.45);font-weight:400">Arquitectos</span>
+    <span class="nav-logo-text">
+      <span class="nav-logo-title">Arquitectos</span>
+      <span class="nav-logo-names">
+        <span>Carlos Aguirre M.</span>
+        <span>Carlos Aguirre B.</span>
+        <span>Álvaro Páez R.</span>
+        <span>Martín Flamarique</span>
+      </span>
+    </span>
   </a>
   <div class="nav-right">
     <a href="#proyectos" class="nav-link">Proyectos</a>

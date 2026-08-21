@@ -196,18 +196,6 @@
       <!-- ── RESUMEN MODULE ──────────────────────────────────────────── -->
       <div id="resumen-module" class="module">
 
-        <!-- Months sidebar -->
-        <div id="resumen-sidebar">
-          <div class="wiki-sidebar-header">
-            <span>Meses</span>
-          </div>
-          <div id="resumen-weeks-list">
-            <div class="empty-state" id="resumen-weeks-empty">
-              <p>No hay resúmenes fechados aún.</p>
-            </div>
-          </div>
-        </div>
-
         <!-- Report area -->
         <div id="resumen-report-area">
 
@@ -218,24 +206,22 @@
               <line x1="8" y1="2" x2="8" y2="6"/>
               <line x1="3" y1="10" x2="21" y2="10"/>
             </svg>
-            <span>Seleccioná un mes para ver su resumen</span>
+            <span>No hay resúmenes fechados aún</span>
           </div>
 
           <div id="resumen-report-container" class="hidden">
             <div id="resumen-toolbar">
               <div class="resumen-toolbar-title">
-                <span id="resumen-week-label"></span>
-                <span id="resumen-week-meta"></span>
+                <span id="resumen-title"></span>
+                <span id="resumen-meta"></span>
               </div>
               <div class="resumen-toolbar-actions">
-                <button class="btn-sm js-week-prev" id="resumen-prev-btn" title="Mes anterior">← Anterior</button>
-                <button class="btn-sm js-week-next" id="resumen-next-btn" title="Mes siguiente">Siguiente →</button>
                 <button class="btn-sm primary" id="resumen-print-btn">🖨️ Imprimir</button>
               </div>
             </div>
 
             <div id="resumen-report">
-              <!-- Filled dinámicamente: el mes seleccionado, agrupado por día -->
+              <!-- Filled dinámicamente: todas las entradas fechadas, agrupadas por empresa -->
             </div>
           </div>
 

@@ -90,17 +90,13 @@ const DOM = {
   antEncargadoInput: $('ant-encargado-input'),
   antEncargadoAddBtn:$('ant-encargado-add'),
   antEncargadosDatalist: $('ant-encargados-datalist'),
-  // Resumen mensual
+  // Resumen
   resumenModule:         $('resumen-module'),
-  resumenSidebar:        $('resumen-sidebar'),
-  resumenWeeksList:      $('resumen-weeks-list'),
   resumenEmptyState:     $('resumen-empty-state'),
   resumenReportContainer:$('resumen-report-container'),
   resumenReport:         $('resumen-report'),
-  resumenWeekLabel:      $('resumen-week-label'),
-  resumenWeekMeta:       $('resumen-week-meta'),
-  resumenPrevBtn:        $('resumen-prev-btn'),
-  resumenNextBtn:        $('resumen-next-btn'),
+  resumenTitle:          $('resumen-title'),
+  resumenMeta:           $('resumen-meta'),
   resumenPrintBtn:       $('resumen-print-btn'),
   // Dropbox links (Detalles Constructivos / Proyectos con Permiso)
   planosNavBtn:  $('planos-nav-btn'),
@@ -1160,23 +1156,25 @@ async function confirmDeletePage(pageId) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// RESUMEN MENSUAL
+// RESUMEN
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// Cada página de Reuniones va acumulando entradas fechadas, separadas por
-// <hr>, donde la primera línea de cada entrada es un <h2> con la fecha en
-// español (insertada a mano con "Insertar fecha"). Este módulo detecta esas
-// fechas de TODAS las secciones/páginas accesibles, arma meses calendario
-// y, dentro de cada mes, agrupa todo por día — para que se pueda elegir un
-// mes e imprimir un resumen único para repartir.
+// Cada página de Reuniones puede tener varias entradas separadas por <hr>,
+// cada una con su fecha en español opcional al principio (insertada a mano
+// con "Insertar fecha"). Este módulo junta el contenido de TODAS las
+// secciones/páginas accesibles en un único resumen para imprimir y
+// repartir, agrupado por empresa (sección) — sin dividir por mes ni semana,
+// y sin dejar afuera lo que no tiene fecha puesta. La fecha, cuando existe,
+// se muestra como un dato más de la entrada, no como criterio de inclusión
+// ni de agrupación: lo que importa para repartir es a qué empresa le
+// corresponde cada cosa.
 
 const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 const DIAS_ES  = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
 const DATE_HEADING_RE = /(\d{1,2})\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)(?:\s+de)?\s+(\d{4})/i;
 
 const resumenState = {
-  months: [],     // [{ key, month, entries: [...] }], más reciente primero
-  currentIndex: -1,
+  sectionGroups: [],  // [{ section, entries: [...] }], en el orden de las secciones
 };
 
 // Clave "AAAA-MM-DD" en hora LOCAL (no usar toISOString: en husos horarios
@@ -1188,18 +1186,6 @@ function dateKey(d) {
 function formatDayLabel(date) {
   const label = `${DIAS_ES[date.getDay()]}, ${date.getDate()} de ${MESES_ES[date.getMonth()]} de ${date.getFullYear()}`;
   return capitalizeFirst(label);
-}
-
-function monthStart(date) {
-  return new Date(date.getFullYear(), date.getMonth(), 1);
-}
-
-function monthKey(month) {
-  return `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`;
-}
-
-function formatMonthLabel(month) {
-  return capitalizeFirst(`${MESES_ES[month.getMonth()]} de ${month.getFullYear()}`);
 }
 
 // Splits a page's HTML content into dated entries using <hr> as separator
@@ -1246,10 +1232,10 @@ function extractChunkDate(chunk) {
 }
 
 // Un chunk sin ninguna fecha reconocible (nunca se le insertó fecha, o no
-// matchea el formato) no tiene una fecha real que mostrar y se descarta del
-// Resumen — no se usa como respaldo la fecha de última edición, porque eso
-// hacía aparecer contenido bajo una fecha que no es la que está puesta en
-// la página.
+// matchea el formato) igual entra al Resumen — la fecha ya no decide qué se
+// incluye, solo se muestra como dato de la entrada cuando existe. Sin
+// fecha, la entrada se ordena al final dentro de su empresa (ver
+// buildResumenData).
 function splitPageIntoEntries(page) {
   const html = page.content || '';
   if (!html.trim()) return [];
@@ -1259,14 +1245,21 @@ function splitPageIntoEntries(page) {
 
   chunks.forEach(chunk => {
     const found = extractChunkDate(chunk);
-    if (!found) return;
+    let date = null;
+    let dateLabel = '';
+    let bodyHtml = chunk;
 
-    const { dm, dateLabel, bodyHtml } = found;
-    const day   = parseInt(dm[1], 10);
-    const month = MESES_ES.indexOf(dm[2].toLowerCase());
-    const year  = parseInt(dm[3], 10);
-    const date  = new Date(year, month, day);
-    if (isNaN(date.getTime())) return;
+    if (found) {
+      const day   = parseInt(found.dm[1], 10);
+      const month = MESES_ES.indexOf(found.dm[2].toLowerCase());
+      const year  = parseInt(found.dm[3], 10);
+      const parsed = new Date(year, month, day);
+      if (!isNaN(parsed.getTime())) {
+        date = parsed;
+        dateLabel = found.dateLabel;
+        bodyHtml = found.bodyHtml;
+      }
+    }
 
     const visibleHtml = stripResolvedContent(bodyHtml);
 
@@ -1281,44 +1274,48 @@ function splitPageIntoEntries(page) {
   return entries;
 }
 
-// Groups every dated entry from every accessible section/page into months.
+// Groups every dated entry from every accessible section/page by empresa
+// (sección), sin importar el mes o la fecha — todo el historial junto.
 //
 // Una página puede tener varios bloques con fecha real (una por cada vez
-// que se usó "Insertar fecha"); cada uno cuenta por separado bajo su propia
-// fecha, así que una misma página puede aportar contenido a más de un mes
-// si tiene entradas puestas en días distintos.
-function buildMonthlyData() {
+// que se usó "Insertar fecha"); cada uno cuenta como una entrada aparte,
+// ordenada cronológicamente dentro de su empresa.
+function buildResumenData() {
   const sections = getAccessibleSections();
   const sectionById = Object.fromEntries(sections.map(s => [s.id, s]));
-  const monthsMap = new Map();
+  const sectionOrder = new Map(sections.map((s, i) => [s.id, i]));
+  const bySection = new Map();
 
   state.pages.forEach(page => {
     const section = sectionById[page.sectionId];
     if (!section) return; // sección no accesible para este usuario
 
     splitPageIntoEntries(page).forEach(seg => {
-      const month = monthStart(seg.date);
-      const key = monthKey(month);
-      if (!monthsMap.has(key)) {
-        monthsMap.set(key, { key, month, entries: [] });
+      if (!bySection.has(section.id)) {
+        bySection.set(section.id, { section, entries: [] });
       }
-      monthsMap.get(key).entries.push({
-        section, page, date: seg.date, dateLabel: seg.dateLabel, html: seg.html,
+      bySection.get(section.id).entries.push({
+        page, date: seg.date, dateLabel: seg.dateLabel, html: seg.html,
       });
     });
   });
 
-  const months = Array.from(monthsMap.values());
-  months.forEach(m => {
-    m.entries.sort((a, b) =>
-      a.date - b.date ||
-      a.section.name.localeCompare(b.section.name) ||
-      (a.page.title || '').localeCompare(b.page.title || '')
-    );
+  const sectionGroups = Array.from(bySection.values());
+  sectionGroups.forEach(g => {
+    // Fechadas primero, en orden cronológico; las sin fecha van al final,
+    // ordenadas por título de página.
+    g.entries.sort((a, b) => {
+      if (a.date && b.date) return a.date - b.date || (a.page.title || '').localeCompare(b.page.title || '');
+      if (a.date) return -1;
+      if (b.date) return 1;
+      return (a.page.title || '').localeCompare(b.page.title || '');
+    });
   });
-  months.sort((a, b) => b.month - a.month); // más reciente primero
+  sectionGroups.sort((a, b) =>
+    (sectionOrder.get(a.section.id) ?? 0) - (sectionOrder.get(b.section.id) ?? 0)
+  );
 
-  return months;
+  return sectionGroups;
 }
 
 async function loadResumen() {
@@ -1334,53 +1331,15 @@ async function loadResumen() {
     toast('Error al cargar el resumen: ' + err.message, 'error');
   }
 
-  resumenState.months = buildMonthlyData();
-
-  // Mantener el mes seleccionado si sigue existiendo; si no, ir al más reciente
-  const prevKey = resumenState.months[resumenState.currentIndex]?.key;
-  let idx = prevKey ? resumenState.months.findIndex(m => m.key === prevKey) : -1;
-  if (idx === -1) idx = resumenState.months.length > 0 ? 0 : -1;
-  resumenState.currentIndex = idx;
-
-  renderResumenSidebar();
-  renderResumenMonth();
+  resumenState.sectionGroups = buildResumenData();
+  renderResumen();
 }
 
-function selectResumenMonth(index) {
-  resumenState.currentIndex = index;
-  renderResumenSidebar();
-  renderResumenMonth();
-}
+function renderResumen() {
+  const sectionGroups = resumenState.sectionGroups;
+  const totalEntries = sectionGroups.reduce((n, g) => n + g.entries.length, 0);
 
-function renderResumenSidebar() {
-  const list = DOM.resumenWeeksList;
-
-  if (resumenState.months.length === 0) {
-    list.innerHTML = '<div class="empty-state"><p>No hay resúmenes fechados aún.<br>Se generan automáticamente a partir de las fechas en Reuniones.</p></div>';
-    return;
-  }
-
-  const currentMonthKey = monthKey(monthStart(new Date()));
-
-  list.innerHTML = resumenState.months.map((m, i) => `
-    <div class="resumen-week-item${i === resumenState.currentIndex ? ' active' : ''}" data-index="${i}">
-      <span class="resumen-week-name">${formatMonthLabel(m.month)}${m.key === currentMonthKey ? ' <span class="resumen-week-tag">Actual</span>' : ''}</span>
-      <span class="resumen-week-count">${m.entries.length} entrada${m.entries.length === 1 ? '' : 's'}</span>
-    </div>
-  `).join('');
-
-  list.querySelectorAll('.resumen-week-item').forEach(el => {
-    el.addEventListener('click', () => {
-      selectResumenMonth(parseInt(el.dataset.index, 10));
-      DOM.resumenSidebar.classList.remove('open');
-    });
-  });
-}
-
-function renderResumenMonth() {
-  const month = resumenState.months[resumenState.currentIndex];
-
-  if (!month) {
+  if (totalEntries === 0) {
     DOM.resumenEmptyState.classList.remove('hidden');
     DOM.resumenReportContainer.classList.add('hidden');
     return;
@@ -1389,30 +1348,16 @@ function renderResumenMonth() {
   DOM.resumenEmptyState.classList.add('hidden');
   DOM.resumenReportContainer.classList.remove('hidden');
 
-  DOM.resumenWeekLabel.textContent = formatMonthLabel(month.month);
-  const totalSections = new Set(month.entries.map(e => e.section.id)).size;
-  DOM.resumenWeekMeta.textContent = `${month.entries.length} entrada${month.entries.length === 1 ? '' : 's'} · ${totalSections} ${totalSections === 1 ? 'sección' : 'secciones'}`;
-
-  DOM.resumenPrevBtn.disabled = resumenState.currentIndex >= resumenState.months.length - 1;
-  DOM.resumenNextBtn.disabled = resumenState.currentIndex <= 0;
-
-  // Dentro del mes, agrupa cronológicamente por día — todo lo que pasó
-  // ese día, sin importar la sección.
-  const byDay = new Map();
-  month.entries.forEach(e => {
-    const key = dateKey(e.date);
-    if (!byDay.has(key)) byDay.set(key, { date: e.date, entries: [] });
-    byDay.get(key).entries.push(e);
-  });
-  const days = Array.from(byDay.values()).sort((a, b) => a.date - b.date);
+  DOM.resumenTitle.textContent = 'Resumen';
+  DOM.resumenMeta.textContent = `${totalEntries} entrada${totalEntries === 1 ? '' : 's'} · ${sectionGroups.length} ${sectionGroups.length === 1 ? 'empresa' : 'empresas'}`;
 
   const generadoLabel = new Date().toLocaleDateString('es-AR', { year: 'numeric', month: 'long', day: 'numeric' });
 
-  const daysHtml = days.map(({ date, entries }) => {
+  const sectionsHtml = sectionGroups.map(({ section, entries }) => {
     const entriesHtml = entries.map(e => `
       <div class="resumen-entry">
         <div class="resumen-entry-meta">
-          <span class="resumen-entry-section" style="background:${e.section.color || '#6b7280'}">${escHtml(e.section.name)}</span>
+          ${e.dateLabel ? `<span class="resumen-entry-date">${escHtml(e.dateLabel)}</span>` : ''}
           <span class="resumen-entry-page">${escHtml(e.page.title || 'Sin título')}</span>
         </div>
         <div class="resumen-entry-body">${e.html}</div>
@@ -1420,8 +1365,11 @@ function renderResumenMonth() {
     `).join('');
 
     return `
-      <div class="resumen-day-block">
-        <h3 class="resumen-day-title">${escHtml(formatDayLabel(date))}</h3>
+      <div class="resumen-section-block">
+        <h3 class="resumen-section-title" style="border-color:${section.color || '#6b7280'}">
+          <span class="resumen-section-dot" style="background:${section.color || '#6b7280'}"></span>
+          ${escHtml(section.name)}
+        </h3>
         ${entriesHtml}
       </div>
     `;
@@ -1430,24 +1378,12 @@ function renderResumenMonth() {
   DOM.resumenReport.innerHTML = `
     <div class="resumen-print-header">
       <div class="resumen-print-brand">AiA Arquitectos</div>
-      <h1 class="resumen-print-title">${formatMonthLabel(month.month)}</h1>
-      <div class="resumen-print-sub">Resumen mensual de reuniones · Generado el ${generadoLabel}</div>
+      <h1 class="resumen-print-title">Resumen por empresa</h1>
+      <div class="resumen-print-sub">Generado el ${generadoLabel}</div>
     </div>
-    ${daysHtml || '<div class="empty-state"><p>Sin entradas para este mes.</p></div>'}
+    ${sectionsHtml}
   `;
 }
-
-DOM.resumenPrevBtn.addEventListener('click', () => {
-  if (resumenState.currentIndex < resumenState.months.length - 1) {
-    selectResumenMonth(resumenState.currentIndex + 1);
-  }
-});
-
-DOM.resumenNextBtn.addEventListener('click', () => {
-  if (resumenState.currentIndex > 0) {
-    selectResumenMonth(resumenState.currentIndex - 1);
-  }
-});
 
 DOM.resumenPrintBtn.addEventListener('click', () => {
   window.print();
@@ -2059,12 +1995,9 @@ async function loadActivity() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 DOM.hamburger.addEventListener('click', () => {
-  // If wiki/resumen is active, also toggle its own sidebar
+  // If wiki is active, also toggle its own sidebar
   if (DOM.wikiModule.classList.contains('active')) {
     DOM.wikiSidebar.classList.toggle('open');
-  }
-  if (DOM.resumenModule.classList.contains('active')) {
-    DOM.resumenSidebar.classList.toggle('open');
   }
   if (DOM.planosModule.classList.contains('active')) {
     DOM.planosSidebar.classList.toggle('open');

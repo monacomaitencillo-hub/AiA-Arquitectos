@@ -31,18 +31,23 @@ service cloud.firestore {
     }
 
     // ── Sections collection ─────────────────────────────────────────────────
+    // Lectura pública: se muestran en la web pública (index.html → "Proyectos"),
+    // sin login, así que allowedUids ya no filtra la lectura acá.
     match /sections/{sectionId} {
-      allow read: if isActive();
+      allow read: if true;
       allow create, update, delete: if isAdmin();
     }
 
     // ── Dropbox links collection (Detalles Constructivos / Proyectos con Permiso) ──
+    // Lectura pública por el mismo motivo que sections/pages.
     match /dropboxLinks/{linkId} {
-      allow read: if isActive();
+      allow read: if true;
       allow create, update, delete: if isAdmin();
     }
 
     // ── Pages collection ────────────────────────────────────────────────────
+    // Lectura pública: el contenido de cada página se muestra en la web
+    // pública sin login (ver index.html → "Proyectos").
     match /pages/{pageId} {
       function sectionData() {
         return get(/databases/$(database)/documents/sections/$(resource.data.sectionId)).data;
@@ -51,9 +56,7 @@ service cloud.firestore {
         return get(/databases/$(database)/documents/sections/$(request.resource.data.sectionId)).data;
       }
 
-      // Admin sees everything; others only see pages in accessible sections
-      allow read: if isAdmin() ||
-        (isActive() && request.auth.uid in sectionData().allowedUids);
+      allow read: if true;
 
       // Admin can do anything; editors can create/update in allowed sections
       allow create: if isAdmin() ||

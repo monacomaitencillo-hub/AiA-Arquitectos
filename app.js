@@ -1159,14 +1159,15 @@ async function confirmDeletePage(pageId) {
 // RESUMEN
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// Cada página de Reuniones va acumulando entradas fechadas, separadas por
-// <hr>, donde la primera línea de cada entrada es un <h2> con la fecha en
-// español (insertada a mano con "Insertar fecha"). Este módulo junta esas
-// entradas de TODAS las secciones/páginas accesibles en un único resumen
-// para imprimir y repartir, agrupado por empresa (sección) — sin dividir
-// por mes ni semana. La fecha de cada entrada se muestra como un dato más,
-// no como criterio de orden: lo que importa para repartir es a qué empresa
-// le corresponde cada cosa.
+// Cada página de Reuniones puede tener varias entradas separadas por <hr>,
+// cada una con su fecha en español opcional al principio (insertada a mano
+// con "Insertar fecha"). Este módulo junta el contenido de TODAS las
+// secciones/páginas accesibles en un único resumen para imprimir y
+// repartir, agrupado por empresa (sección) — sin dividir por mes ni semana,
+// y sin dejar afuera lo que no tiene fecha puesta. La fecha, cuando existe,
+// se muestra como un dato más de la entrada, no como criterio de inclusión
+// ni de agrupación: lo que importa para repartir es a qué empresa le
+// corresponde cada cosa.
 
 const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 const DIAS_ES  = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
@@ -1231,10 +1232,10 @@ function extractChunkDate(chunk) {
 }
 
 // Un chunk sin ninguna fecha reconocible (nunca se le insertó fecha, o no
-// matchea el formato) no tiene una fecha real que mostrar y se descarta del
-// Resumen — no se usa como respaldo la fecha de última edición, porque eso
-// hacía aparecer contenido bajo una fecha que no es la que está puesta en
-// la página.
+// matchea el formato) igual entra al Resumen — la fecha ya no decide qué se
+// incluye, solo se muestra como dato de la entrada cuando existe. Sin
+// fecha, la entrada se ordena al final dentro de su empresa (ver
+// buildResumenData).
 function splitPageIntoEntries(page) {
   const html = page.content || '';
   if (!html.trim()) return [];
@@ -1244,14 +1245,21 @@ function splitPageIntoEntries(page) {
 
   chunks.forEach(chunk => {
     const found = extractChunkDate(chunk);
-    if (!found) return;
+    let date = null;
+    let dateLabel = '';
+    let bodyHtml = chunk;
 
-    const { dm, dateLabel, bodyHtml } = found;
-    const day   = parseInt(dm[1], 10);
-    const month = MESES_ES.indexOf(dm[2].toLowerCase());
-    const year  = parseInt(dm[3], 10);
-    const date  = new Date(year, month, day);
-    if (isNaN(date.getTime())) return;
+    if (found) {
+      const day   = parseInt(found.dm[1], 10);
+      const month = MESES_ES.indexOf(found.dm[2].toLowerCase());
+      const year  = parseInt(found.dm[3], 10);
+      const parsed = new Date(year, month, day);
+      if (!isNaN(parsed.getTime())) {
+        date = parsed;
+        dateLabel = found.dateLabel;
+        bodyHtml = found.bodyHtml;
+      }
+    }
 
     const visibleHtml = stripResolvedContent(bodyHtml);
 
@@ -1294,10 +1302,14 @@ function buildResumenData() {
 
   const sectionGroups = Array.from(bySection.values());
   sectionGroups.forEach(g => {
-    g.entries.sort((a, b) =>
-      a.date - b.date ||
-      (a.page.title || '').localeCompare(b.page.title || '')
-    );
+    // Fechadas primero, en orden cronológico; las sin fecha van al final,
+    // ordenadas por título de página.
+    g.entries.sort((a, b) => {
+      if (a.date && b.date) return a.date - b.date || (a.page.title || '').localeCompare(b.page.title || '');
+      if (a.date) return -1;
+      if (b.date) return 1;
+      return (a.page.title || '').localeCompare(b.page.title || '');
+    });
   });
   sectionGroups.sort((a, b) =>
     (sectionOrder.get(a.section.id) ?? 0) - (sectionOrder.get(b.section.id) ?? 0)
@@ -1345,7 +1357,7 @@ function renderResumen() {
     const entriesHtml = entries.map(e => `
       <div class="resumen-entry">
         <div class="resumen-entry-meta">
-          <span class="resumen-entry-date">${escHtml(e.dateLabel)}</span>
+          ${e.dateLabel ? `<span class="resumen-entry-date">${escHtml(e.dateLabel)}</span>` : ''}
           <span class="resumen-entry-page">${escHtml(e.page.title || 'Sin título')}</span>
         </div>
         <div class="resumen-entry-body">${e.html}</div>

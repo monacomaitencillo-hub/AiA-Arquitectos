@@ -1396,23 +1396,27 @@ function renderResumenMonth() {
   DOM.resumenPrevBtn.disabled = resumenState.currentIndex >= resumenState.months.length - 1;
   DOM.resumenNextBtn.disabled = resumenState.currentIndex <= 0;
 
-  // Dentro del mes, agrupa cronológicamente por día — todo lo que pasó
-  // ese día, sin importar la sección.
-  const byDay = new Map();
+  // Dentro del mes, agrupa por sección (empresa) — no por día. Cada sección
+  // muestra sus entradas en orden cronológico, con la fecha como dato de
+  // cada entrada en vez de como agrupador.
+  const sectionOrder = new Map(getAccessibleSections().map((s, i) => [s.id, i]));
+  const bySection = new Map();
   month.entries.forEach(e => {
-    const key = dateKey(e.date);
-    if (!byDay.has(key)) byDay.set(key, { date: e.date, entries: [] });
-    byDay.get(key).entries.push(e);
+    const key = e.section.id;
+    if (!bySection.has(key)) bySection.set(key, { section: e.section, entries: [] });
+    bySection.get(key).entries.push(e);
   });
-  const days = Array.from(byDay.values()).sort((a, b) => a.date - b.date);
+  const sectionGroups = Array.from(bySection.values()).sort((a, b) =>
+    (sectionOrder.get(a.section.id) ?? 0) - (sectionOrder.get(b.section.id) ?? 0)
+  );
 
   const generadoLabel = new Date().toLocaleDateString('es-AR', { year: 'numeric', month: 'long', day: 'numeric' });
 
-  const daysHtml = days.map(({ date, entries }) => {
+  const sectionsHtml = sectionGroups.map(({ section, entries }) => {
     const entriesHtml = entries.map(e => `
       <div class="resumen-entry">
         <div class="resumen-entry-meta">
-          <span class="resumen-entry-section" style="background:${e.section.color || '#6b7280'}">${escHtml(e.section.name)}</span>
+          <span class="resumen-entry-date">${escHtml(e.dateLabel)}</span>
           <span class="resumen-entry-page">${escHtml(e.page.title || 'Sin título')}</span>
         </div>
         <div class="resumen-entry-body">${e.html}</div>
@@ -1420,8 +1424,11 @@ function renderResumenMonth() {
     `).join('');
 
     return `
-      <div class="resumen-day-block">
-        <h3 class="resumen-day-title">${escHtml(formatDayLabel(date))}</h3>
+      <div class="resumen-section-block">
+        <h3 class="resumen-section-title" style="border-color:${section.color || '#6b7280'}">
+          <span class="resumen-section-dot" style="background:${section.color || '#6b7280'}"></span>
+          ${escHtml(section.name)}
+        </h3>
         ${entriesHtml}
       </div>
     `;
@@ -1433,7 +1440,7 @@ function renderResumenMonth() {
       <h1 class="resumen-print-title">${formatMonthLabel(month.month)}</h1>
       <div class="resumen-print-sub">Resumen mensual de reuniones · Generado el ${generadoLabel}</div>
     </div>
-    ${daysHtml || '<div class="empty-state"><p>Sin entradas para este mes.</p></div>'}
+    ${sectionsHtml || '<div class="empty-state"><p>Sin entradas para este mes.</p></div>'}
   `;
 }
 

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AIA Wiki — Administración</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- Acceso directo al panel de Administración: si ya hay sesión, entra
+       directo a app.html#admin; si no, manda a loguearse y desde ahí
+       sigue directo a Administración (sin pasar por Reuniones). -->
+  <div id="loading-overlay">
+    <div class="spinner"></div>
+    <span>Abriendo Administración...</span>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+
+  <script>
+    const FIREBASE_CONFIG = {
+      apiKey: "AIzaSyAek0F64AeFDrOUgyGP-_c37X9CrqODVdM",
+      authDomain: "aia-arquitectos-730e8.firebaseapp.com",
+      projectId: "aia-arquitectos-730e8",
+      storageBucket: "aia-arquitectos-730e8.firebasestorage.app",
+      messagingSenderId: "996874189178",
+      appId: "1:996874189178:web:5f61b3ee0155951a303ec3",
+      measurementId: "G-69G7KP1V7N"
+    };
+
+    firebase.initializeApp(FIREBASE_CONFIG);
+    const auth = firebase.auth();
+
+    auth.onAuthStateChanged(user => {
+      window.location.href = user ? 'app.html#admin' : 'login.html?redirect=admin';
+    });
+  </script>
+</body>
+</html>

@@ -244,6 +244,11 @@ function initApp() {
   initAntecedentesPanel();
   loadWiki();
   loadDropboxLinks();
+
+  // Acceso directo a Administración (ver admin.html) sin pasar por Reuniones.
+  if (location.hash === '#admin' && userData.role === 'admin') {
+    switchModule('admin');
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

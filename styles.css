@@ -84,6 +84,7 @@ a:hover { text-decoration: underline; }
   text-align: center;
   margin-bottom: 28px;
 }
+.login-logo svg { margin-bottom: 10px; }
 .login-logo h1 {
   font-size: 22px; font-weight: 700;
   color: var(--text); letter-spacing: -.3px;
@@ -139,6 +140,7 @@ a:hover { text-decoration: underline; }
 }
 #hamburger-btn:hover { background: var(--sidebar-bg); }
 .header-logo {
+  display: flex; align-items: center; gap: 8px;
   font-size: 15px; font-weight: 700; color: var(--text);
   letter-spacing: -.2px;
 }

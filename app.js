@@ -1066,10 +1066,6 @@ function openCreatePageModal(sectionId) {
         <label>Título de la página</label>
         <input id="m-page-title" type="text" placeholder="Nombre de la reunión o tema" maxlength="120" />
       </div>
-      <div class="form-group">
-        <label>Fecha</label>
-        <input id="m-page-date" type="date" value="${todayInputValue()}" />
-      </div>
       <div id="m-page-error" class="form-error" style="display:none"></div>
     `,
     footer: `
@@ -1082,14 +1078,13 @@ function openCreatePageModal(sectionId) {
   $('m-confirm-btn').addEventListener('click', async () => {
     const title = $('m-page-title').value.trim();
     if (!title) { $('m-page-error').textContent = 'Ingresá un título.'; $('m-page-error').style.display='block'; return; }
-    const dateValue = $('m-page-date').value;
-    if (!dateValue) { $('m-page-error').textContent = 'Elegí una fecha.'; $('m-page-error').style.display='block'; return; }
 
     $('m-confirm-btn').disabled = true;
     try {
       const maxOrder = state.pages.filter(p => p.sectionId === sectionId).reduce((m, p) => Math.max(m, p.order || 0), 0);
-      const fechaCapitalizada = formatDayLabel(parseDateInputValue(dateValue));
-      const initialContent = `<h2>${fechaCapitalizada}</h2><p><br></p>`;
+      // Sin fecha automática: la página arranca vacía y la fecha se agrega
+      // a mano con "Insertar fecha" cuando corresponda.
+      const initialContent = `<p><br></p>`;
       const initialAntecedentes = normalizeAntecedentes({});
       const docRef = await db.collection('pages').add({
         sectionId,

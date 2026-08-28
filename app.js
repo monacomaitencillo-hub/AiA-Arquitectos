@@ -780,12 +780,28 @@ function applyFontSize(px) {
 }
 
 // Inserta un ítem de tarea (casillero + texto + encargado + fecha de
-// entrega + prioridad), en formato de fila, en la posición del cursor.
+// entrega + prioridad), en formato de fila, siempre debajo de la última
+// tarea existente (si hay alguna) en vez de donde estuviera el cursor.
 // Tildar el casillero la marca resuelta; la etiqueta de prioridad rota
 // entre Alta/Media/Baja al clickearla.
 function insertTask() {
   const tempId = 'tmp-task-' + Date.now();
   const html = `<div class="task-item" data-priority="media"><input type="checkbox" class="task-checkbox"><span class="task-text" id="${tempId}">Nueva tarea</span><input type="text" class="task-encargado" list="ant-encargados-datalist" placeholder="Encargado"><input type="date" class="task-due-date" title="Fecha de entrega"><button type="button" class="task-priority-tag" data-priority="media">Media</button><button type="button" class="task-delete-btn" title="Eliminar tarea">×</button></div><p><br></p>`;
+
+  const taskItems = DOM.editorContent.querySelectorAll('.task-item');
+  const lastTask = taskItems[taskItems.length - 1];
+  if (lastTask) {
+    const afterLast = lastTask.nextSibling?.nodeType === Node.ELEMENT_NODE && lastTask.nextSibling.matches('p')
+      ? lastTask.nextSibling
+      : lastTask;
+    const range = document.createRange();
+    range.setStartAfter(afterLast);
+    range.collapse(true);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
   document.execCommand('insertHTML', false, html);
 
   const textEl = document.getElementById(tempId);

@@ -22,6 +22,7 @@
   --rail-text-muted: #8b87ab;
   --module-sidebar-w: 200px;
   --wiki-sidebar-w: 240px;
+  --bottom-nav-h: 60px;
   --radius: 6px;
   --radius-lg: 8px;
   --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
@@ -175,6 +176,23 @@ a:hover { text-decoration: underline; }
   background: var(--accent); color: #fff; font-weight: 600;
 }
 .module-nav-icon { margin-right: 8px; font-size: 14px; }
+
+/* Bottom nav (app-style tab bar, mobile only — reemplaza al rail lateral) */
+#bottom-nav {
+  display: none;
+  position: fixed; left: 0; right: 0; bottom: 0;
+  background: var(--rail-bg); border-top: 1px solid var(--rail-border);
+  z-index: 96;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.bottom-nav-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; padding: 7px 4px;
+  height: var(--bottom-nav-h);
+  font-size: 10.5px; font-weight: 600; color: var(--rail-text-muted); transition: color .15s;
+}
+.bottom-nav-icon { font-size: 20px; line-height: 1; }
+.bottom-nav-btn.active { color: #fff; }
 
 .sidebar-footer {
   padding: 14px 8px 4px; margin-top: 8px;
@@ -487,6 +505,14 @@ a:hover { text-decoration: underline; }
 .task-priority-tag[data-priority="baja"]  { background: var(--accent-light); color: var(--accent); }
 .task-item.task-done .task-priority-tag { opacity: .5; }
 .resumen-entry-body .task-priority-tag { cursor: default; }
+.task-delete-btn {
+  flex-shrink: 0; align-self: stretch; display: flex; align-items: center; justify-content: center;
+  width: 28px; border: none; border-left: 1px solid var(--border);
+  background: transparent; color: var(--text-muted); font-size: 16px; line-height: 1; cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.task-delete-btn:hover { background: var(--danger-light); color: var(--danger); }
+.resumen-entry-body .task-delete-btn { display: none; }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /* RESUMEN MODULE                                                              */
@@ -865,6 +891,14 @@ a:hover { text-decoration: underline; }
 .toast.success { background: #16a34a; }
 .toast.error { background: var(--danger); }
 .toast.info { background: #0ea5e9; }
+.toast-undo {
+  background: #1f2937; display: flex; align-items: center; gap: 14px;
+  animation: slideInRight .2s; /* sin fadeOut: dura hasta que se cierre sola o se deshaga */
+}
+.toast-undo-btn {
+  color: #fff; font-weight: 700; font-size: 13px;
+  text-decoration: underline; flex-shrink: 0;
+}
 @keyframes slideInRight { from { transform: translateX(20px); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes fadeOut { to { opacity: 0; transform: translateY(4px); } }
 
@@ -885,8 +919,15 @@ a:hover { text-decoration: underline; }
 
   #hamburger-btn { display: flex; }
 
+  /* La barra inferior tipo app reemplaza al rail como forma primaria de
+     cambiar de módulo; el rail sigue existiendo como drawer de cuenta
+     (nombre + cerrar sesión), abierto desde el botón "Cuenta" de la barra. */
+  #bottom-nav { display: flex; }
+  #app-body { height: calc(100vh - var(--bottom-nav-h) - env(safe-area-inset-bottom)); }
+
   #module-sidebar {
-    position: fixed; top: 0; left: 0; bottom: 0;
+    position: fixed; top: 0; left: 0;
+    bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom));
     z-index: 90; transform: translateX(-100%);
     width: 220px;
   }
@@ -895,7 +936,8 @@ a:hover { text-decoration: underline; }
   #wiki-module { flex-direction: column; }
 
   #wiki-sidebar {
-    position: fixed; top: 0; left: 0; bottom: 0;
+    position: fixed; top: 0; left: 0;
+    bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom));
     z-index: 80; transform: translateX(-100%);
     width: 260px; border-right: 1px solid var(--border);
   }
@@ -907,6 +949,21 @@ a:hover { text-decoration: underline; }
   #editor-header { padding: 12px 16px 8px; }
   #editor-toolbar { padding: 6px 12px; }
 
+  /* La fila de tarea (checkbox + texto + encargado + fecha + prioridad +
+     borrar) no entra entera en una pantalla angosta con su tamaño de
+     escritorio: en vez de aplastar el texto letra por letra, se achican
+     tipografía y columnas para que la fila siga entrando en una línea,
+     con el texto truncado con "…" si no alcanza. */
+  .task-item { font-size: 11px; }
+  .task-text {
+    padding: 6px 6px; font-size: 12px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .task-encargado { width: 62px; font-size: 10px; padding: 6px 4px; }
+  .task-due-date { width: 88px; font-size: 10px; padding: 6px 2px; }
+  .task-priority-tag { font-size: 8.5px; padding: 2px 5px; margin: 0 6px; }
+  .task-delete-btn { width: 24px; font-size: 14px; }
+
   #resumen-report-area { width: 100%; }
   #resumen-report { padding: 8px 16px 60px; }
   #resumen-toolbar { padding: 10px 16px; flex-direction: column; align-items: stretch; gap: 10px; }
@@ -917,7 +974,8 @@ a:hover { text-decoration: underline; }
   #planos-module { flex-direction: column; }
 
   #planos-sidebar {
-    position: fixed; top: 0; left: 0; bottom: 0;
+    position: fixed; top: 0; left: 0;
+    bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom));
     z-index: 80; transform: translateX(-100%);
     width: 260px; border-right: 1px solid var(--border);
   }
@@ -925,7 +983,7 @@ a:hover { text-decoration: underline; }
 
   #planos-area { width: 100%; }
 
-  .admin-tab-content { padding: 16px; }
+  .admin-tab-content { padding: 16px 16px calc(16px + var(--bottom-nav-h) + env(safe-area-inset-bottom)); }
   .admin-panel-header { padding: 16px 16px 0; }
 
   .modal-box { max-width: 100%; margin: 0; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
@@ -950,6 +1008,7 @@ a:hover { text-decoration: underline; }
 
   /* Hide everything except the active report */
   #module-sidebar,
+  #bottom-nav,
   #resumen-toolbar,
   #toast-container,
   #modal-overlay,

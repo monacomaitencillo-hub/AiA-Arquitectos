@@ -189,6 +189,8 @@
               <button class="toolbar-btn" data-cmd="insertOrderedList" title="Lista numerada">1. Lista</button>
               <button class="toolbar-btn" id="insert-date-btn" title="Insertar nueva fecha con calendario">📅 Fecha</button>
               <button class="toolbar-btn" id="insert-task-btn" title="Insertar tarea con encargado, fecha de entrega y prioridad">☑ Tarea</button>
+              <button class="toolbar-btn" id="delete-task-btn" title="Eliminar la tarea donde está el cursor">🗑️ Eliminar</button>
+              <button class="toolbar-btn" id="undo-btn" title="Deshacer el último cambio (Ctrl+Z)">↩️ Deshacer</button>
               <span class="toolbar-sep"></span>
               <button class="toolbar-btn" data-cmd="createLink" title="Insertar enlace">🔗</button>
               <button class="toolbar-btn" data-cmd="insertHorizontalRule" title="Separador horizontal">—</button>
@@ -322,6 +324,25 @@
 
     </main>
   </div><!-- /app-body -->
+
+  <!-- ── BOTTOM NAV (barra tipo app, solo mobile) ──────────────────────────── -->
+  <nav id="bottom-nav" class="hidden">
+    <button class="module-nav-btn bottom-nav-btn active" data-module="wiki">
+      <span class="bottom-nav-icon">📄</span><span class="bottom-nav-label">Reuniones</span>
+    </button>
+    <button class="module-nav-btn bottom-nav-btn" data-module="resumen">
+      <span class="bottom-nav-icon">🗓️</span><span class="bottom-nav-label">Resumen</span>
+    </button>
+    <button class="module-nav-btn bottom-nav-btn hidden" data-module="planos">
+      <span class="bottom-nav-icon">📐</span><span class="bottom-nav-label">Planos</span>
+    </button>
+    <button class="module-nav-btn bottom-nav-btn hidden" data-module="admin">
+      <span class="bottom-nav-icon">⚙️</span><span class="bottom-nav-label">Admin</span>
+    </button>
+    <button id="bottom-nav-account-btn" class="bottom-nav-btn" type="button" title="Cuenta">
+      <span class="bottom-nav-icon">👤</span><span class="bottom-nav-label">Cuenta</span>
+    </button>
+  </nav>
 
   <!-- ── MODAL ───────────────────────────────────────────────────────────── -->
   <div id="modal-overlay" class="hidden" role="dialog" aria-modal="true">

@@ -63,6 +63,8 @@ const DOM = {
   headerUserName:    $('header-user-name'),
   logoutBtn:         $('logout-btn'),
   moduleSidebar:     $('module-sidebar'),
+  bottomNav:         $('bottom-nav'),
+  bottomNavAccountBtn: $('bottom-nav-account-btn'),
   mainArea:          $('main-area'),
   // Wiki
   wikiModule:        $('wiki-module'),
@@ -98,7 +100,6 @@ const DOM = {
   resumenMeta:           $('resumen-meta'),
   resumenPrintBtn:       $('resumen-print-btn'),
   // Dropbox links (Detalles Constructivos / Proyectos con Permiso)
-  planosNavBtn:  $('planos-nav-btn'),
   planosModule:  $('planos-module'),
   planosSidebar: $('planos-sidebar'),
   planosList:    $('planos-list'),
@@ -106,7 +107,6 @@ const DOM = {
   adminDropboxList:    $('admin-dropbox-list'),
   // Admin
   adminModule:       $('admin-module'),
-  adminNavBtn:       $('admin-nav-btn'),
   usersTableBody:    $('users-table-body'),
   createUserBtn:     $('create-user-btn'),
   adminSectionsList: $('admin-sections-list'),
@@ -133,6 +133,37 @@ function toast(msg, type = 'info') {
   el.textContent = msg;
   DOM.toastContainer.appendChild(el);
   setTimeout(() => el.remove(), 3200);
+}
+
+// Última acción deshacible por fuera del historial nativo del editor (p.ej.
+// borrar una tarea). El botón "↩ Deshacer" de la barra la prioriza sobre el
+// undo nativo para que siempre revierta lo último que pasó de verdad.
+let pendingUndo = null;
+
+// Toast con acción "Deshacer": queda más tiempo en pantalla que un toast
+// normal y, si se clickea a tiempo (acá o desde la barra), ejecuta onUndo
+// en vez de solo cerrarse.
+function showUndoToast(msg, onUndo) {
+  const el = document.createElement('div');
+  el.className = 'toast toast-undo';
+  el.innerHTML = `<span></span><button type="button" class="toast-undo-btn">Deshacer</button>`;
+  el.querySelector('span').textContent = msg;
+  DOM.toastContainer.appendChild(el);
+
+  const entry = {
+    dismiss() {
+      clearTimeout(timer);
+      el.remove();
+      if (pendingUndo === entry) pendingUndo = null;
+    },
+    run() {
+      entry.dismiss();
+      onUndo();
+    },
+  };
+  const timer = setTimeout(() => entry.dismiss(), 6000);
+  pendingUndo = entry;
+  el.querySelector('.toast-undo-btn').addEventListener('click', entry.run);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -230,12 +261,13 @@ function initApp() {
 
   // Show/hide admin nav based on role
   if (userData.role === 'admin') {
-    DOM.adminNavBtn.classList.remove('hidden');
+    document.querySelectorAll('.module-nav-btn[data-module="admin"]').forEach(b => b.classList.remove('hidden'));
   }
 
   // Show UI
   DOM.loading.classList.add('hidden');
   DOM.appBody.classList.remove('hidden');
+  DOM.bottomNav.classList.remove('hidden');
 
   initNavigation();
   initEditorToolbar();
@@ -272,8 +304,10 @@ function initNavigation() {
     });
   });
 
-  // Hamburger
-  DOM.hamburger.addEventListener('click', () => {
+  // Botón "Cuenta" de la barra inferior (mobile): abre el rail lateral como
+  // drawer para ver el usuario y cerrar sesión, ya que en mobile el rail no
+  // se usa para cambiar de módulo (eso lo hace la barra inferior).
+  DOM.bottomNavAccountBtn.addEventListener('click', () => {
     DOM.moduleSidebar.classList.toggle('open');
   });
 }
@@ -283,7 +317,11 @@ function switchModule(moduleName) {
   document.querySelectorAll('.module-nav-btn').forEach(b => b.classList.remove('active'));
 
   $(`${moduleName}-module`).classList.add('active');
-  document.querySelector(`.module-nav-btn[data-module="${moduleName}"]`).classList.add('active');
+  document.querySelectorAll(`.module-nav-btn[data-module="${moduleName}"]`).forEach(b => b.classList.add('active'));
+
+  // El hamburguesa solo tiene sentido en los módulos con sub-sidebar propio
+  // (secciones de Reuniones, carpetas de Planos); en Resumen/Admin no hay nada que abrir.
+  DOM.hamburger.classList.toggle('hidden', moduleName !== 'wiki' && moduleName !== 'planos');
 
   if (moduleName === 'admin') {
     loadAdminTab('users');
@@ -498,6 +536,7 @@ async function loadPage(pageId) {
   DOM.pageTitleInput.disabled = !canEdit;
 
   DOM.editorContent.innerHTML = page.content || '';
+  normalizeTaskItems(DOM.editorContent);
   DOM.editorContent.contentEditable = canEdit ? 'true' : 'false';
   DOM.editorToolbar.style.display = canEdit ? 'flex' : 'none';
 
@@ -594,6 +633,27 @@ function initEditorToolbar() {
         return;
       }
 
+      if (btn.id === 'delete-task-btn') {
+        const item = getSelectedTaskItem();
+        if (item) {
+          deleteTaskItem(item);
+        } else {
+          toast('Poné el cursor sobre una tarea para eliminarla.', 'info');
+        }
+        return;
+      }
+
+      if (btn.id === 'undo-btn') {
+        if (pendingUndo) {
+          pendingUndo.run();
+        } else {
+          document.execCommand('undo', false, null);
+        }
+        DOM.editorContent.focus();
+        scheduleAutosave();
+        return;
+      }
+
       if (btn.id === 'text-color-btn') {
         DOM.textColorPopover.classList.toggle('hidden');
         return;
@@ -677,6 +737,12 @@ function initEditorToolbar() {
   // Tareas: tildar casillero = resuelta (se tacha y se oculta del Resumen);
   // click en la etiqueta = rota la prioridad Alta → Media → Baja.
   DOM.editorContent.addEventListener('click', e => {
+    const deleteBtn = e.target.closest('.task-delete-btn');
+    if (deleteBtn) {
+      deleteTaskItem(deleteBtn.closest('.task-item'));
+      return;
+    }
+
     const checkbox = e.target.closest('.task-checkbox');
     if (checkbox) {
       const item = checkbox.closest('.task-item');
@@ -719,7 +785,7 @@ function applyFontSize(px) {
 // entre Alta/Media/Baja al clickearla.
 function insertTask() {
   const tempId = 'tmp-task-' + Date.now();
-  const html = `<div class="task-item" data-priority="media"><input type="checkbox" class="task-checkbox"><span class="task-text" id="${tempId}">Nueva tarea</span><input type="text" class="task-encargado" list="ant-encargados-datalist" placeholder="Encargado"><input type="date" class="task-due-date" title="Fecha de entrega"><button type="button" class="task-priority-tag" data-priority="media">Media</button></div><p><br></p>`;
+  const html = `<div class="task-item" data-priority="media"><input type="checkbox" class="task-checkbox"><span class="task-text" id="${tempId}">Nueva tarea</span><input type="text" class="task-encargado" list="ant-encargados-datalist" placeholder="Encargado"><input type="date" class="task-due-date" title="Fecha de entrega"><button type="button" class="task-priority-tag" data-priority="media">Media</button><button type="button" class="task-delete-btn" title="Eliminar tarea">×</button></div><p><br></p>`;
   document.execCommand('insertHTML', false, html);
 
   const textEl = document.getElementById(tempId);
@@ -733,6 +799,56 @@ function insertTask() {
   }
   DOM.editorContent.focus();
   scheduleAutosave();
+}
+
+// Saca una tarea del editor. execCommand('delete') sobre un <div> de layout
+// flex es poco confiable (a veces deja el marcado a medio borrar), así que
+// se saca con remove() y se ofrece un "Deshacer" propio en vez de depender
+// del historial nativo del editor.
+function deleteTaskItem(item) {
+  if (!item) return;
+  const parent = item.parentNode;
+  const nextSibling = item.nextSibling;
+  const html = item.outerHTML;
+  item.remove();
+  scheduleAutosave();
+  showUndoToast('Tarea eliminada', () => {
+    const temp = document.createElement('div');
+    temp.innerHTML = html;
+    const restored = temp.firstElementChild;
+    if (nextSibling && nextSibling.isConnected) {
+      parent.insertBefore(restored, nextSibling);
+    } else {
+      parent.appendChild(restored);
+    }
+    scheduleAutosave();
+  });
+}
+
+// Encuentra la tarea donde está parado el cursor, para el botón "Eliminar"
+// de la barra de herramientas (a diferencia del botón × de cada fila, que
+// ya sabe sobre qué tarea actuar porque está adentro de ella).
+function getSelectedTaskItem() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return null;
+  let node = sel.getRangeAt(0).commonAncestorContainer;
+  if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+  return node?.closest?.('.task-item') || null;
+}
+
+// Las tareas guardadas antes de agregar el botón de eliminar quedaron sin
+// él en su HTML: al abrir la página se les inserta acá para que también
+// se puedan borrar, sin tener que tocar los datos guardados.
+function normalizeTaskItems(container) {
+  container.querySelectorAll('.task-item').forEach(item => {
+    if (item.querySelector('.task-delete-btn')) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'task-delete-btn';
+    btn.title = 'Eliminar tarea';
+    btn.textContent = '×';
+    item.appendChild(btn);
+  });
 }
 
 // Inserta un nuevo bloque fechado ("<hr><h2>fecha</h2>") al final de la
@@ -1434,7 +1550,8 @@ function getAccessibleDropboxLinks() {
 // El botón "Planos" del menú se muestra si el usuario tiene acceso a al
 // menos uno de los enlaces.
 function updateDropboxNavVisibility() {
-  DOM.planosNavBtn.classList.toggle('hidden', getAccessibleDropboxLinks().length === 0);
+  const hasAccess = getAccessibleDropboxLinks().length > 0;
+  document.querySelectorAll('.module-nav-btn[data-module="planos"]').forEach(b => b.classList.toggle('hidden', !hasAccess));
 }
 
 function renderDropboxModules() {

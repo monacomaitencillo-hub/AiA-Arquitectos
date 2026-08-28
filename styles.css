@@ -456,15 +456,29 @@ a:hover { text-decoration: underline; }
 }
 
 /* Task items (checklist con prioridad, usado en Reuniones y en el Resumen) */
+/* Fila de tarea — checkbox + texto + encargado + fecha de entrega + prioridad,
+   con bordes entre celdas para que se lea como una fila de planilla. */
 .task-item {
-  display: flex; align-items: center; gap: 8px;
-  padding: 3px 0; margin: 0 0 4px;
+  display: flex; align-items: stretch; gap: 0;
+  margin: 0 0 4px; max-width: 100%; overflow-x: auto;
+  border: 1px solid var(--border); border-radius: var(--radius);
 }
-.task-checkbox { flex-shrink: 0; width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); }
-.task-text { flex: 1; min-width: 0; }
+.task-checkbox { flex-shrink: 0; width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); align-self: center; margin: 0 0 0 10px; }
+.task-text { flex: 1; min-width: 0; padding: 6px 10px; align-self: center; }
 .task-item.task-done .task-text { text-decoration: line-through; color: var(--text-muted); }
+.task-encargado, .task-due-date {
+  flex-shrink: 0; border: none; border-left: 1px solid var(--border);
+  background: transparent; font: inherit; font-size: 12.5px; color: var(--text);
+  padding: 6px 10px; outline: none;
+}
+.task-encargado { width: 130px; }
+.task-encargado::placeholder { color: var(--text-muted); }
+.task-due-date { width: 132px; color: var(--text-muted); }
+.task-encargado:focus, .task-due-date:focus { background: var(--accent-light); color: var(--text); }
+.task-encargado:disabled, .task-due-date:disabled { opacity: .8; }
 .task-priority-tag {
-  flex-shrink: 0; font-size: 10px; font-weight: 700; text-transform: uppercase;
+  flex-shrink: 0; align-self: center; margin: 0 10px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
   letter-spacing: .03em; padding: 2px 8px; border-radius: 99px; cursor: pointer;
   border: none; font-family: inherit;
 }
@@ -961,6 +975,10 @@ a:hover { text-decoration: underline; }
     background: #fff !important;
     border: 1px solid #ccc !important;
   }
+
+  /* Printed pages can't scroll: let a task row wrap instead of clipping
+     the encargado/fecha-de-entrega cells that don't fit its width. */
+  .task-item { overflow-x: visible; flex-wrap: wrap; }
 
   a { color: #000 !important; text-decoration: none !important; }
 }

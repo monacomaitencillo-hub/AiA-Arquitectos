@@ -652,8 +652,17 @@ function initEditorToolbar() {
     }
   });
 
-  // Listen for content changes
-  DOM.editorContent.addEventListener('input', scheduleAutosave);
+  // Listen for content changes. El "Encargado" y la "Fecha de entrega" de
+  // una tarea son <input> reales: su value vive como propiedad del DOM y no
+  // se refleja en innerHTML solo, así que hay que copiarlo al atributo a
+  // mano para que el autoguardado (que serializa innerHTML) lo capture.
+  DOM.editorContent.addEventListener('input', e => {
+    const el = e.target;
+    if (el.matches?.('.task-encargado, .task-due-date')) {
+      el.setAttribute('value', el.value);
+    }
+    scheduleAutosave();
+  });
   DOM.pageTitleInput.addEventListener('input', scheduleAutosave);
 
   // Keyboard shortcuts
@@ -704,12 +713,13 @@ function applyFontSize(px) {
   });
 }
 
-// Inserta un ítem de tarea (casillero + texto + prioridad) en la posición
-// del cursor. Tildar el casillero la marca resuelta; la etiqueta de
-// prioridad rota entre Alta/Media/Baja al clickearla.
+// Inserta un ítem de tarea (casillero + texto + encargado + fecha de
+// entrega + prioridad), en formato de fila, en la posición del cursor.
+// Tildar el casillero la marca resuelta; la etiqueta de prioridad rota
+// entre Alta/Media/Baja al clickearla.
 function insertTask() {
   const tempId = 'tmp-task-' + Date.now();
-  const html = `<div class="task-item" data-priority="media"><input type="checkbox" class="task-checkbox"><span class="task-text" id="${tempId}">Nueva tarea</span><button type="button" class="task-priority-tag" data-priority="media">Media</button></div><p><br></p>`;
+  const html = `<div class="task-item" data-priority="media"><input type="checkbox" class="task-checkbox"><span class="task-text" id="${tempId}">Nueva tarea</span><input type="text" class="task-encargado" list="ant-encargados-datalist" placeholder="Encargado"><input type="date" class="task-due-date" title="Fecha de entrega"><button type="button" class="task-priority-tag" data-priority="media">Media</button></div><p><br></p>`;
   document.execCommand('insertHTML', false, html);
 
   const textEl = document.getElementById(tempId);
@@ -1199,7 +1209,7 @@ function stripResolvedContent(html) {
   const tmp = document.createElement('div');
   tmp.innerHTML = html;
   tmp.querySelectorAll('s, strike, .task-item.task-done').forEach(el => el.remove());
-  tmp.querySelectorAll('.task-checkbox').forEach(cb => cb.disabled = true);
+  tmp.querySelectorAll('.task-checkbox, .task-encargado, .task-due-date').forEach(el => el.disabled = true);
   return tmp.innerHTML;
 }
 

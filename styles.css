@@ -478,26 +478,34 @@ a:hover { text-decoration: underline; }
    con bordes entre celdas para que se lea como una fila de planilla. */
 .task-item {
   display: flex; align-items: stretch; gap: 0;
-  margin: 0 0 4px; max-width: 100%; overflow-x: auto;
+  margin: 0 0 2px; max-width: 100%; overflow-x: auto;
   border: 1px solid var(--border); border-radius: var(--radius);
+  font-size: 11px;
 }
+/* El <p><br></p> que separa una tarea de la siguiente: se achica a un
+   respiro mínimo en vez del alto de línea normal, para que las tareas
+   queden apretadas entre sí. */
+#editor-content .task-item + p { margin: 0 0 2px; line-height: .4; }
 .task-checkbox { flex-shrink: 0; width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); align-self: center; margin: 0 0 0 10px; }
-.task-text { flex: 1; min-width: 0; padding: 6px 10px; align-self: center; }
+.task-text {
+  flex: 1; min-width: 0; padding: 6px 6px; align-self: center; font-size: 12px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .task-item.task-done .task-text { text-decoration: line-through; color: var(--text-muted); }
 .task-encargado, .task-due-date {
   flex-shrink: 0; border: none; border-left: 1px solid var(--border);
-  background: transparent; font: inherit; font-size: 12.5px; color: var(--text);
-  padding: 6px 10px; outline: none;
+  background: transparent; font: inherit; font-size: 10px; color: var(--text);
+  padding: 6px 4px; outline: none;
 }
-.task-encargado { width: 130px; }
+.task-encargado { width: 62px; }
 .task-encargado::placeholder { color: var(--text-muted); }
-.task-due-date { width: 132px; color: var(--text-muted); }
+.task-due-date { width: 88px; padding: 6px 2px; color: var(--text-muted); }
 .task-encargado:focus, .task-due-date:focus { background: var(--accent-light); color: var(--text); }
 .task-encargado:disabled, .task-due-date:disabled { opacity: .8; }
 .task-priority-tag {
-  flex-shrink: 0; align-self: center; margin: 0 10px;
-  font-size: 10px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: .03em; padding: 2px 8px; border-radius: 99px; cursor: pointer;
+  flex-shrink: 0; align-self: center; margin: 0 6px;
+  font-size: 8.5px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .03em; padding: 2px 5px; border-radius: 99px; cursor: pointer;
   border: none; font-family: inherit;
 }
 .task-priority-tag[data-priority="alta"]  { background: var(--danger-light); color: var(--danger); }
@@ -507,8 +515,8 @@ a:hover { text-decoration: underline; }
 .resumen-entry-body .task-priority-tag { cursor: default; }
 .task-delete-btn {
   flex-shrink: 0; align-self: stretch; display: flex; align-items: center; justify-content: center;
-  width: 28px; border: none; border-left: 1px solid var(--border);
-  background: transparent; color: var(--text-muted); font-size: 16px; line-height: 1; cursor: pointer;
+  width: 24px; border: none; border-left: 1px solid var(--border);
+  background: transparent; color: var(--text-muted); font-size: 14px; line-height: 1; cursor: pointer;
   transition: background .12s, color .12s;
 }
 .task-delete-btn:hover { background: var(--danger-light); color: var(--danger); }
@@ -948,21 +956,6 @@ a:hover { text-decoration: underline; }
   #editor-content { padding: 16px; }
   #editor-header { padding: 12px 16px 8px; }
   #editor-toolbar { padding: 6px 12px; }
-
-  /* La fila de tarea (checkbox + texto + encargado + fecha + prioridad +
-     borrar) no entra entera en una pantalla angosta con su tamaño de
-     escritorio: en vez de aplastar el texto letra por letra, se achican
-     tipografía y columnas para que la fila siga entrando en una línea,
-     con el texto truncado con "…" si no alcanza. */
-  .task-item { font-size: 11px; }
-  .task-text {
-    padding: 6px 6px; font-size: 12px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .task-encargado { width: 62px; font-size: 10px; padding: 6px 4px; }
-  .task-due-date { width: 88px; font-size: 10px; padding: 6px 2px; }
-  .task-priority-tag { font-size: 8.5px; padding: 2px 5px; margin: 0 6px; }
-  .task-delete-btn { width: 24px; font-size: 14px; }
 
   #resumen-report-area { width: 100%; }
   #resumen-report { padding: 8px 16px 60px; }

@@ -58,7 +58,6 @@ const $ = id => document.getElementById(id);
 
 const DOM = {
   loading:           $('loading-overlay'),
-  header:            $('app-header'),
   appBody:           $('app-body'),
   hamburger:         $('hamburger-btn'),
   headerUserName:    $('header-user-name'),
@@ -236,7 +235,6 @@ function initApp() {
 
   // Show UI
   DOM.loading.classList.add('hidden');
-  DOM.header.classList.remove('hidden');
   DOM.appBody.classList.remove('hidden');
 
   initNavigation();

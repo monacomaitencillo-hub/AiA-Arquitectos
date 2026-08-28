@@ -17,46 +17,47 @@
     <span>Cargando...</span>
   </div>
 
-  <!-- ── HEADER ──────────────────────────────────────────────────────────── -->
-  <header id="app-header" class="hidden">
-    <button id="hamburger-btn" title="Menú">☰</button>
-    <span class="header-logo">
-      <svg width="66" height="23" viewBox="0 0 90 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <path d="M2 30 L13 4 L24 30" stroke="#c9a76d" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-        <line x1="7" y1="21" x2="19" y2="21" stroke="#c9a76d" stroke-width="3" stroke-linecap="round"/>
-        <circle cx="45" cy="8" r="2.6" fill="#c9a76d"/>
-        <line x1="45" y1="13" x2="45" y2="30" stroke="#c9a76d" stroke-width="3" stroke-linecap="round"/>
-        <path d="M66 30 L77 4 L88 30" stroke="#c9a76d" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-        <line x1="71" y1="21" x2="83" y2="21" stroke="#c9a76d" stroke-width="3" stroke-linecap="round"/>
-      </svg>
-      <span style="border-left:1px solid var(--border);padding-left:10px">AIA Wiki</span>
-    </span>
-    <div class="header-spacer"></div>
-    <span id="header-user-name"></span>
-    <button id="logout-btn">Cerrar sesión</button>
-  </header>
-
   <!-- ── APP BODY ───────────────────────────────────────────────────────── -->
   <div id="app-body" class="hidden">
 
-    <!-- Module sidebar (wiki / admin) -->
+    <!-- Module sidebar (dark rail: brand, nav, account) -->
     <nav id="module-sidebar">
-      <button class="module-nav-btn active" data-module="wiki">
-        <span class="module-nav-icon">📄</span>Reuniones
-      </button>
-      <button class="module-nav-btn" data-module="resumen">
-        <span class="module-nav-icon">🗓️</span>Resumen
-      </button>
-      <button class="module-nav-btn hidden" data-module="planos" id="planos-nav-btn">
-        <span class="module-nav-icon">📐</span>Planos
-      </button>
-      <button class="module-nav-btn hidden" data-module="admin" id="admin-nav-btn">
-        <span class="module-nav-icon">⚙️</span>Administración
-      </button>
+      <div class="sidebar-brand">
+        <svg width="26" height="26" viewBox="0 0 90 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M2 30 L13 4 L24 30" stroke="#c9a76d" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <line x1="7" y1="21" x2="19" y2="21" stroke="#c9a76d" stroke-width="3.4" stroke-linecap="round"/>
+          <circle cx="45" cy="8" r="2.8" fill="#c9a76d"/>
+          <line x1="45" y1="13" x2="45" y2="30" stroke="#c9a76d" stroke-width="3.4" stroke-linecap="round"/>
+          <path d="M66 30 L77 4 L88 30" stroke="#c9a76d" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <line x1="71" y1="21" x2="83" y2="21" stroke="#c9a76d" stroke-width="3.4" stroke-linecap="round"/>
+        </svg>
+        <span>AIA Wiki</span>
+      </div>
+
+      <div class="module-nav">
+        <button class="module-nav-btn active" data-module="wiki">
+          <span class="module-nav-icon">📄</span>Reuniones
+        </button>
+        <button class="module-nav-btn" data-module="resumen">
+          <span class="module-nav-icon">🗓️</span>Resumen
+        </button>
+        <button class="module-nav-btn hidden" data-module="planos" id="planos-nav-btn">
+          <span class="module-nav-icon">📐</span>Planos
+        </button>
+        <button class="module-nav-btn hidden" data-module="admin" id="admin-nav-btn">
+          <span class="module-nav-icon">⚙️</span>Administración
+        </button>
+      </div>
+
+      <div class="sidebar-footer">
+        <span id="header-user-name"></span>
+        <button id="logout-btn">Cerrar sesión</button>
+      </div>
     </nav>
 
     <!-- Main area -->
     <main id="main-area">
+      <button id="hamburger-btn" title="Menú">☰</button>
 
       <!-- ── WIKI MODULE ───────────────────────────────────────────── -->
       <div id="wiki-module" class="module active">

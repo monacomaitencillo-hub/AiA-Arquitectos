@@ -3,8 +3,10 @@
   --bg: #ffffff;
   --sidebar-bg: #f7f7f5;
   --sidebar-hover: #efefed;
-  --accent: #2563eb;
-  --accent-light: #eff6ff;
+  --accent: #6552e8;
+  --accent-hover: #5340cf;
+  --accent-rgb: 101, 82, 232;
+  --accent-light: #f1eeff;
   --text: #1a1a1a;
   --text-muted: #6b7280;
   --border: #e5e7eb;
@@ -12,7 +14,12 @@
   --danger-light: #fef2f2;
   --success: #16a34a;
   --warning: #d97706;
-  --header-h: 52px;
+  /* Dark sidebar rail (Read AI-style: brand / nav / account, edge to edge) */
+  --rail-bg: #14132b;
+  --rail-hover: #201f3f;
+  --rail-border: #28264a;
+  --rail-text: #d8d6ea;
+  --rail-text-muted: #8b87ab;
   --module-sidebar-w: 200px;
   --wiki-sidebar-w: 240px;
   --radius: 6px;
@@ -103,7 +110,7 @@ a:hover { text-decoration: underline; }
   font-size: 14px; transition: border-color .15s;
   outline: none;
 }
-.login-card input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+.login-card input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb),.1); }
 .btn-primary {
   width: 100%; padding: 10px;
   background: var(--accent); color: #fff;
@@ -111,7 +118,7 @@ a:hover { text-decoration: underline; }
   transition: background .15s, opacity .15s;
   display: flex; align-items: center; justify-content: center; gap: 8px;
 }
-.btn-primary:hover { background: #1d4ed8; }
+.btn-primary:hover { background: var(--accent-hover); }
 .btn-primary:disabled { opacity: .6; cursor: not-allowed; }
 .login-error {
   margin-top: 12px; padding: 9px 12px;
@@ -124,67 +131,67 @@ a:hover { text-decoration: underline; }
 /* APP LAYOUT                                                                  */
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
-/* Header */
-#app-header {
-  position: fixed; top: 0; left: 0; right: 0;
-  height: var(--header-h);
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
-  display: flex; align-items: center;
-  padding: 0 16px; gap: 12px;
-  z-index: 100;
-}
-#hamburger-btn {
-  display: none; font-size: 18px; padding: 4px 6px;
-  border-radius: var(--radius); color: var(--text-muted);
-}
-#hamburger-btn:hover { background: var(--sidebar-bg); }
-.header-logo {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 15px; font-weight: 700; color: var(--text);
-  letter-spacing: -.2px;
-}
-.header-spacer { flex: 1; }
-#header-user-name {
-  font-size: 13px; color: var(--text-muted);
-  max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-#logout-btn {
-  padding: 6px 12px; font-size: 13px; font-weight: 500;
-  border: 1px solid var(--border); border-radius: var(--radius);
-  color: var(--text-muted); transition: all .15s;
-}
-#logout-btn:hover { border-color: var(--text-muted); color: var(--text); }
-
-/* App body */
+/* App body — full height, no top header: the sidebar rail runs edge to edge */
 #app-body {
   display: flex;
-  height: calc(100vh - var(--header-h));
-  margin-top: var(--header-h);
+  height: 100vh;
   overflow: hidden;
 }
 
-/* Module sidebar */
+/* Mobile menu toggle — floats over the content area, hidden on desktop */
+#hamburger-btn {
+  display: none; position: fixed; top: 12px; left: 12px; z-index: 95;
+  font-size: 18px; padding: 6px 9px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius); color: var(--text-muted);
+  box-shadow: var(--shadow);
+}
+#hamburger-btn:hover { background: var(--sidebar-bg); }
+
+/* Module sidebar — dark rail (brand / nav / account), Read AI-style */
 #module-sidebar {
   width: var(--module-sidebar-w);
-  background: var(--sidebar-bg);
-  border-right: 1px solid var(--border);
-  padding: 12px 8px;
-  display: flex; flex-direction: column; gap: 2px;
+  background: var(--rail-bg);
+  padding: 16px 10px;
+  display: flex; flex-direction: column;
   overflow-y: auto; flex-shrink: 0;
   transition: transform .2s;
 }
+.sidebar-brand {
+  display: flex; align-items: center; gap: 9px;
+  padding: 4px 8px 20px;
+  font-size: 15px; font-weight: 700; color: #fff;
+  letter-spacing: -.2px;
+}
+.module-nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
 .module-nav-btn {
   width: 100%; text-align: left;
-  padding: 8px 12px;
-  border-radius: var(--radius); font-size: 13px; font-weight: 500;
-  color: var(--text-muted); transition: all .15s;
+  padding: 9px 12px;
+  border-radius: var(--radius-lg); font-size: 13px; font-weight: 500;
+  color: var(--rail-text-muted); transition: all .15s;
 }
-.module-nav-btn:hover { background: var(--sidebar-hover); color: var(--text); }
+.module-nav-btn:hover { background: var(--rail-hover); color: var(--rail-text); }
 .module-nav-btn.active {
-  background: var(--accent-light); color: var(--accent); font-weight: 600;
+  background: var(--accent); color: #fff; font-weight: 600;
 }
 .module-nav-icon { margin-right: 8px; font-size: 14px; }
+
+.sidebar-footer {
+  padding: 14px 8px 4px; margin-top: 8px;
+  border-top: 1px solid var(--rail-border);
+  display: flex; flex-direction: column; gap: 8px;
+}
+#header-user-name {
+  font-size: 12.5px; color: var(--rail-text-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+#logout-btn {
+  align-self: flex-start;
+  padding: 6px 12px; font-size: 12.5px; font-weight: 500;
+  border: 1px solid var(--rail-border); border-radius: var(--radius);
+  color: var(--rail-text); transition: all .15s;
+}
+#logout-btn:hover { border-color: var(--rail-text-muted); background: var(--rail-hover); }
 
 /* Main area */
 #main-area {
@@ -337,7 +344,7 @@ a:hover { text-decoration: underline; }
 }
 .ant-field input:focus,
 .ant-field select:focus {
-  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,.08);
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb),.08);
 }
 .ant-field input:disabled,
 .ant-field select:disabled { color: var(--text-muted); background: var(--sidebar-hover); }
@@ -357,7 +364,7 @@ a:hover { text-decoration: underline; }
   color: var(--accent); opacity: .6; font-size: 14px; line-height: 1;
   padding: 2px; border-radius: 50%;
 }
-.ant-chip-remove:hover { opacity: 1; background: rgba(37,99,235,.15); }
+.ant-chip-remove:hover { opacity: 1; background: rgba(var(--accent-rgb),.15); }
 
 .ant-empty-hint { font-size: 12px; color: var(--text-muted); font-style: italic; }
 
@@ -679,7 +686,7 @@ a:hover { text-decoration: underline; }
 .btn-sm.primary {
   background: var(--accent); color: #fff; border-color: var(--accent);
 }
-.btn-sm.primary:hover { background: #1d4ed8; }
+.btn-sm.primary:hover { background: var(--accent-hover); }
 .btn-sm.success { color: var(--success); border-color: #86efac; }
 .btn-sm.success:hover { background: #f0fdf4; border-color: var(--success); }
 
@@ -786,7 +793,7 @@ a:hover { text-decoration: underline; }
   background: var(--bg);
 }
 .form-group input:focus,
-.form-group select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,.08); }
+.form-group select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb),.08); }
 .form-error {
   font-size: 12px; color: var(--danger); margin-top: 4px;
 }
@@ -865,7 +872,7 @@ a:hover { text-decoration: underline; }
   #hamburger-btn { display: flex; }
 
   #module-sidebar {
-    position: fixed; top: var(--header-h); left: 0; bottom: 0;
+    position: fixed; top: 0; left: 0; bottom: 0;
     z-index: 90; transform: translateX(-100%);
     width: 220px;
   }
@@ -874,7 +881,7 @@ a:hover { text-decoration: underline; }
   #wiki-module { flex-direction: column; }
 
   #wiki-sidebar {
-    position: fixed; top: var(--header-h); left: 0; bottom: 0;
+    position: fixed; top: 0; left: 0; bottom: 0;
     z-index: 80; transform: translateX(-100%);
     width: 260px; border-right: 1px solid var(--border);
   }
@@ -896,7 +903,7 @@ a:hover { text-decoration: underline; }
   #planos-module { flex-direction: column; }
 
   #planos-sidebar {
-    position: fixed; top: var(--header-h); left: 0; bottom: 0;
+    position: fixed; top: 0; left: 0; bottom: 0;
     z-index: 80; transform: translateX(-100%);
     width: 260px; border-right: 1px solid var(--border);
   }
@@ -928,7 +935,6 @@ a:hover { text-decoration: underline; }
   html, body { height: auto; background: #fff; }
 
   /* Hide everything except the active report */
-  #app-header,
   #module-sidebar,
   #resumen-toolbar,
   #toast-container,

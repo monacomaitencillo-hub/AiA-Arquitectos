@@ -786,24 +786,31 @@ function applyFontSize(px) {
 // entre Alta/Media/Baja al clickearla.
 function insertTask() {
   const tempId = 'tmp-task-' + Date.now();
-  const html = `<div class="task-item" data-priority="media"><input type="checkbox" class="task-checkbox"><span class="task-text" id="${tempId}">Nueva tarea</span><input type="text" class="task-encargado" list="ant-encargados-datalist" placeholder="Encargado"><input type="date" class="task-due-date" title="Fecha de entrega"><button type="button" class="task-priority-tag" data-priority="media">Media</button><button type="button" class="task-delete-btn" title="Eliminar tarea">×</button></div><p><br></p>`;
+  const html = `<div class="task-item" data-priority="media"><input type="checkbox" class="task-checkbox"><span class="task-text" id="${tempId}">Nueva tarea</span><input type="text" class="task-encargado" list="ant-encargados-datalist" placeholder="Encargado"><input type="date" class="task-due-date" title="Fecha de entrega"><button type="button" class="task-priority-tag" data-priority="media">Media</button><button type="button" class="task-delete-btn" title="Eliminar tarea">×</button></div>`;
+  const spacerHtml = `<p><br></p>`;
 
   const taskItems = DOM.editorContent.querySelectorAll('.task-item');
   const lastTask = taskItems[taskItems.length - 1];
+
   if (lastTask) {
+    // Insertar por selección + execCommand es ambiguo para el navegador
+    // cuando el punto de inserción cae justo al final de una fila flex:
+    // en vez de crear una fila hermana debajo, a veces la mete adentro de
+    // la anterior (queda "al lado"). Insertando el nodo a mano se evita
+    // esa ambigüedad y la nueva fila siempre queda debajo de la última.
+    const temp = document.createElement('div');
+    temp.innerHTML = html + spacerHtml;
+    const newTaskEl = temp.firstElementChild;
+    const newSpacerEl = temp.lastElementChild;
     const afterLast = lastTask.nextSibling?.nodeType === Node.ELEMENT_NODE && lastTask.nextSibling.matches('p')
       ? lastTask.nextSibling
       : lastTask;
-    const range = document.createRange();
-    range.setStartAfter(afterLast);
-    range.collapse(true);
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(range);
+    afterLast.after(newTaskEl, newSpacerEl);
+  } else {
+    document.execCommand('insertHTML', false, html + spacerHtml);
   }
 
-  document.execCommand('insertHTML', false, html);
-
+  DOM.editorContent.focus();
   const textEl = document.getElementById(tempId);
   if (textEl) {
     textEl.removeAttribute('id');
@@ -813,7 +820,6 @@ function insertTask() {
     sel.removeAllRanges();
     sel.addRange(range);
   }
-  DOM.editorContent.focus();
   scheduleAutosave();
 }
 

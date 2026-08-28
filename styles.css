@@ -491,7 +491,9 @@ a:hover { text-decoration: underline; }
   flex: 1; min-width: 0; padding: 6px 6px; align-self: center; font-size: 12px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.task-item.task-done .task-text { text-decoration: line-through; color: var(--text-muted); }
+.task-item[data-priority="media"] .task-text { color: var(--warning); }
+.task-item[data-priority="alta"] .task-text { background: #fecaca; color: var(--danger); font-weight: 600; }
+.task-item.task-done .task-text { text-decoration: line-through; color: var(--text-muted); background: none; font-weight: 400; }
 .task-encargado, .task-due-date {
   flex-shrink: 0; border: none; border-left: 1px solid var(--border);
   background: transparent; font: inherit; font-size: 10px; color: var(--text);

@@ -896,7 +896,7 @@ function openInsertDateModal() {
     if (!dateValue) return;
 
     const label = formatDayLabel(parseDateInputValue(dateValue));
-    DOM.editorContent.innerHTML += `<hr><h2>${label}</h2><p><br></p>`;
+    DOM.editorContent.innerHTML += `<hr><h2 class="date-heading">${label}</h2><p><br></p>`;
     scheduleAutosave();
     closeModal();
     DOM.editorContent.focus();

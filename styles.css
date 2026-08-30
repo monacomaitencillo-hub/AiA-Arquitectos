@@ -490,7 +490,7 @@ a:hover { text-decoration: underline; }
 .task-checkbox { flex-shrink: 0; width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); align-self: center; margin: 0 0 0 10px; }
 .task-text {
   flex: 1; min-width: 0; padding: 6px 6px; align-self: center; font-size: 12px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  white-space: normal; overflow-wrap: break-word; line-height: 1.4;
 }
 .task-item[data-priority="media"] .task-text { color: var(--warning); }
 .task-item[data-priority="alta"] .task-text { background: #fecaca; color: var(--danger); font-weight: 600; }

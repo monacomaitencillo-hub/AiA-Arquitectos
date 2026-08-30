@@ -871,6 +871,22 @@ function normalizeTaskItems(container) {
     btn.textContent = '×';
     item.appendChild(btn);
   });
+
+  // Si la tarea más nueva de la página no tiene un párrafo vacío después
+  // (páginas viejas, guardadas antes de este chequeo), no queda ningún
+  // renglón de texto donde caiga el cursor al hacer clic debajo — hay que
+  // agregarlo para poder seguir escribiendo o insertar una fecha ahí.
+  const items = container.querySelectorAll('.task-item');
+  const lastItem = items[items.length - 1];
+  if (lastItem) {
+    const next = lastItem.nextSibling;
+    const hasSpacer = next && next.nodeType === Node.ELEMENT_NODE && next.matches('p');
+    if (!hasSpacer) {
+      const spacer = document.createElement('p');
+      spacer.innerHTML = '<br>';
+      lastItem.after(spacer);
+    }
+  }
 }
 
 // Inserta un nuevo bloque fechado ("<hr><h2>fecha</h2>") al final de la

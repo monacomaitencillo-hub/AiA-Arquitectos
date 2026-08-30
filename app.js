@@ -876,6 +876,14 @@ function normalizeTaskItems(container) {
 // Inserta un nuevo bloque fechado ("<hr><h2>fecha</h2>") al final de la
 // página actual, con la fecha elegida a mano en el calendario (no la de hoy).
 function openInsertDateModal() {
+  // El modal le saca el foco al editor, así que hay que guardar dónde
+  // estaba el cursor antes de abrirlo para poder insertar la fecha ahí
+  // mismo (y no siempre al final del documento).
+  const sel = window.getSelection();
+  const savedRange = (sel && sel.rangeCount > 0 && DOM.editorContent.contains(sel.anchorNode))
+    ? sel.getRangeAt(0).cloneRange()
+    : null;
+
   openModal({
     title: 'Insertar nueva fecha',
     body: `
@@ -896,7 +904,17 @@ function openInsertDateModal() {
     if (!dateValue) return;
 
     const label = formatDayLabel(parseDateInputValue(dateValue));
-    DOM.editorContent.innerHTML += `<hr><h2 class="date-heading">${label}</h2><p><br></p>`;
+    const html = `<hr><h2 class="date-heading">${label}</h2><p><br></p>`;
+
+    DOM.editorContent.focus();
+    if (savedRange) {
+      const liveSel = window.getSelection();
+      liveSel.removeAllRanges();
+      liveSel.addRange(savedRange);
+      document.execCommand('insertHTML', false, html);
+    } else {
+      DOM.editorContent.innerHTML += html;
+    }
     scheduleAutosave();
     closeModal();
     DOM.editorContent.focus();

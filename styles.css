@@ -609,6 +609,10 @@ a:hover { text-decoration: underline; }
 .resumen-entry-body h3 { font-size: 14px; font-weight: 600; margin: 8px 0 4px; }
 .resumen-entry-body p { margin: 0 0 7px; }
 .resumen-entry-body p:last-child { margin-bottom: 0; }
+/* Same squeeze as #editor-content .task-item + p (styles.css ~line 489):
+   the empty <p><br></p> the editor leaves between task rows must collapse
+   here too, or it keeps its full line-height and reopens the gap. */
+.resumen-entry-body .task-item + p { margin: 0 0 2px; line-height: .4; }
 .resumen-entry-body ul, .resumen-entry-body ol { padding-left: 22px; margin: 0 0 7px; }
 .resumen-entry-body li { margin-bottom: 3px; }
 .resumen-entry-body hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }

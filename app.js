@@ -83,6 +83,11 @@ const DOM = {
   textColorSwatch:   $('text-color-swatch'),
   fontSizeBtn:       $('font-size-btn'),
   fontSizePopover:   $('font-size-popover'),
+  titleColorBtn:     $('title-color-btn'),
+  titleColorPopover: $('title-color-popover'),
+  titleColorSwatch:  $('title-color-swatch'),
+  titleSizeBtn:      $('title-size-btn'),
+  titleSizePopover:  $('title-size-popover'),
   // Antecedentes
   antComuna:         $('ant-comuna'),
   antUnidades:       $('ant-unidades'),
@@ -534,6 +539,11 @@ async function loadPage(pageId) {
 
   DOM.pageTitleInput.value = page.title || '';
   DOM.pageTitleInput.disabled = !canEdit;
+  DOM.pageTitleInput.dataset.color = page.titleColor || '';
+  DOM.pageTitleInput.dataset.size = page.titleSize || '';
+  DOM.pageTitleInput.style.color = page.titleColor || '';
+  DOM.pageTitleInput.style.fontSize = page.titleSize ? `${page.titleSize}px` : '';
+  DOM.titleColorSwatch.style.borderBottomColor = page.titleColor || '#e03131';
 
   DOM.editorContent.innerHTML = page.content || '';
   normalizeTaskItems(DOM.editorContent);
@@ -587,19 +597,26 @@ async function performAutosave() {
   const title   = DOM.pageTitleInput.value.trim() || 'Sin título';
   const content = DOM.editorContent.innerHTML;
   const antecedentes = state.antecedentes;
+  const titleColor = DOM.pageTitleInput.dataset.color || '';
+  const titleSize = DOM.pageTitleInput.dataset.size ? Number(DOM.pageTitleInput.dataset.size) : null;
 
   try {
     await db.collection('pages').doc(pageId).update({
       title,
       content,
       antecedentes,
+      titleColor,
+      titleSize,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       updatedBy: state.authUser.uid,
     });
 
     // Update local state
     const page = state.pages.find(p => p.id === pageId);
-    if (page) { page.title = title; page.content = content; page.antecedentes = antecedentes; }
+    if (page) {
+      page.title = title; page.content = content; page.antecedentes = antecedentes;
+      page.titleColor = titleColor; page.titleSize = titleSize;
+    }
 
     // Update sidebar title
     const navEl = document.querySelector(`.page-item[data-page-id="${pageId}"] .page-title-nav`);
@@ -710,6 +727,47 @@ function initEditorToolbar() {
         !e.target.closest('.toolbar-size-wrap')) {
       DOM.fontSizePopover.classList.add('hidden');
     }
+    if (!DOM.titleColorPopover.classList.contains('hidden') &&
+        !e.target.closest('#title-color-btn') && !e.target.closest('#title-color-popover')) {
+      DOM.titleColorPopover.classList.add('hidden');
+    }
+    if (!DOM.titleSizePopover.classList.contains('hidden') &&
+        !e.target.closest('#title-size-btn') && !e.target.closest('#title-size-popover')) {
+      DOM.titleSizePopover.classList.add('hidden');
+    }
+  });
+
+  // Color y tamaño del título de la página
+  DOM.titleColorBtn.addEventListener('click', e => {
+    e.preventDefault();
+    DOM.titleColorPopover.classList.toggle('hidden');
+    DOM.titleSizePopover.classList.add('hidden');
+  });
+  DOM.titleSizeBtn.addEventListener('click', e => {
+    e.preventDefault();
+    DOM.titleSizePopover.classList.toggle('hidden');
+    DOM.titleColorPopover.classList.add('hidden');
+  });
+  DOM.titleColorPopover.querySelectorAll('.color-swatch').forEach(swatch => {
+    swatch.addEventListener('click', e => {
+      e.preventDefault();
+      const color = swatch.dataset.color;
+      DOM.pageTitleInput.dataset.color = color;
+      DOM.pageTitleInput.style.color = color;
+      DOM.titleColorSwatch.style.borderBottomColor = color || '#e03131';
+      DOM.titleColorPopover.classList.add('hidden');
+      scheduleAutosave();
+    });
+  });
+  DOM.titleSizePopover.querySelectorAll('.size-option').forEach(opt => {
+    opt.addEventListener('click', e => {
+      e.preventDefault();
+      const size = opt.dataset.size;
+      DOM.pageTitleInput.dataset.size = size;
+      DOM.pageTitleInput.style.fontSize = size ? `${size}px` : '';
+      DOM.titleSizePopover.classList.add('hidden');
+      scheduleAutosave();
+    });
   });
 
   // Listen for content changes. El "Encargado" y la "Fecha de entrega" de

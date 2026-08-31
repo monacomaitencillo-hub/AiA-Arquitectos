@@ -284,6 +284,8 @@ function initApp() {
 
   initNavigation();
   initEditorToolbar();
+  loadTaskColumnWidths();
+  initTaskColumnResize();
   initAntecedentesPanel();
   loadWiki();
   loadDropboxLinks();
@@ -852,7 +854,7 @@ function applyFontSize(px) {
 // entre Alta/Media/Baja al clickearla.
 function insertTask() {
   const tempId = 'tmp-task-' + Date.now();
-  const html = `<div class="task-item" data-priority="media"><input type="checkbox" class="task-checkbox"><span class="task-text" id="${tempId}">Nueva tarea</span><input type="text" class="task-encargado" list="ant-encargados-datalist" placeholder="Encargado"><input type="date" class="task-due-date" title="Fecha de entrega"><button type="button" class="task-priority-tag" data-priority="media">Media</button><button type="button" class="task-delete-btn" title="Eliminar tarea">×</button></div>`;
+  const html = `<div class="task-item" data-priority="media"><input type="checkbox" class="task-checkbox"><span class="task-text" id="${tempId}">Nueva tarea</span><input type="text" class="task-encargado" list="ant-encargados-datalist" placeholder="Encargado"><span class="task-col-resize" data-col="encargado" contenteditable="false" title="Arrastrar para ajustar el ancho"></span><input type="date" class="task-due-date" title="Fecha de entrega"><span class="task-col-resize" data-col="due" contenteditable="false" title="Arrastrar para ajustar el ancho"></span><button type="button" class="task-priority-tag" data-priority="media">Media</button><button type="button" class="task-delete-btn" title="Eliminar tarea">×</button></div>`;
   const spacerHtml = `<p><br></p>`;
 
   const taskItems = DOM.editorContent.querySelectorAll('.task-item');
@@ -938,6 +940,19 @@ function normalizeTaskItems(container) {
     item.appendChild(btn);
   });
 
+  // Tareas guardadas antes de agregar las manijas para ajustar el ancho de
+  // Encargado / Fecha de entrega: se insertan acá, después de cada input.
+  container.querySelectorAll('.task-item').forEach(item => {
+    const encargado = item.querySelector('.task-encargado');
+    if (encargado && !encargado.nextElementSibling?.matches('.task-col-resize')) {
+      encargado.after(makeTaskColResizeHandle('encargado'));
+    }
+    const due = item.querySelector('.task-due-date');
+    if (due && !due.nextElementSibling?.matches('.task-col-resize')) {
+      due.after(makeTaskColResizeHandle('due'));
+    }
+  });
+
   // Si la tarea más nueva de la página no tiene un párrafo vacío después
   // (páginas viejas, guardadas antes de este chequeo), no queda ningún
   // renglón de texto donde caiga el cursor al hacer clic debajo — hay que
@@ -953,6 +968,69 @@ function normalizeTaskItems(container) {
       lastItem.after(spacer);
     }
   }
+}
+
+function makeTaskColResizeHandle(col) {
+  const span = document.createElement('span');
+  span.className = 'task-col-resize';
+  span.dataset.col = col;
+  span.contentEditable = 'false';
+  span.title = 'Arrastrar para ajustar el ancho';
+  return span;
+}
+
+// Ancho de las columnas Encargado / Fecha de entrega de las tareas: viven
+// como variables CSS globales (mismo ancho en todas las filas, como una
+// columna de planilla) y se guardan en localStorage para que el ajuste
+// quede entre sesiones, sin tener que tocar los datos de cada página.
+const TASK_COL_STORAGE_KEY = 'aia-task-col-widths';
+const TASK_COL_LIMITS = {
+  encargado: { min: 40, max: 320, varName: '--task-encargado-w' },
+  due:       { min: 70, max: 220, varName: '--task-due-date-w' },
+};
+
+function loadTaskColumnWidths() {
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(TASK_COL_STORAGE_KEY)) || {}; } catch { /* ignore */ }
+  Object.entries(TASK_COL_LIMITS).forEach(([col, { varName }]) => {
+    const w = Number(saved[col]);
+    if (w) document.documentElement.style.setProperty(varName, w + 'px');
+  });
+}
+
+function saveTaskColumnWidth(col, widthPx) {
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(TASK_COL_STORAGE_KEY)) || {}; } catch { /* ignore */ }
+  saved[col] = widthPx;
+  localStorage.setItem(TASK_COL_STORAGE_KEY, JSON.stringify(saved));
+}
+
+function initTaskColumnResize() {
+  DOM.editorContent.addEventListener('mousedown', e => {
+    const handle = e.target.closest('.task-col-resize');
+    if (!handle) return;
+    e.preventDefault();
+
+    const col = handle.dataset.col;
+    const { min, max, varName } = TASK_COL_LIMITS[col];
+    const startX = e.clientX;
+    const startWidth = parseFloat(getComputedStyle(document.documentElement).getPropertyValue(varName)) || min;
+    handle.classList.add('is-resizing');
+
+    let currentWidth = startWidth;
+    const onMove = ev => {
+      currentWidth = Math.min(max, Math.max(min, startWidth + (ev.clientX - startX)));
+      document.documentElement.style.setProperty(varName, currentWidth + 'px');
+    };
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      handle.classList.remove('is-resizing');
+      saveTaskColumnWidth(col, Math.round(currentWidth));
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
 }
 
 // Inserta un nuevo bloque fechado ("<hr><h2>fecha</h2>") al final de la

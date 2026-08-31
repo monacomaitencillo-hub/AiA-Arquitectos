@@ -161,7 +161,7 @@
                   <input type="number" id="ant-m2total" min="0" step="0.01" placeholder="0" />
                 </div>
 
-                <div class="ant-field ant-field-full">
+                <div class="ant-field">
                   <label>Encargado/s</label>
                   <div id="ant-encargados-chips" class="ant-chips"></div>
                   <div class="ant-add-row">
@@ -169,6 +169,26 @@
                     <button type="button" class="btn-sm" id="ant-encargado-add">+ Agregar</button>
                   </div>
                   <datalist id="ant-encargados-datalist"></datalist>
+                </div>
+
+                <div class="ant-field">
+                  <label>Revisor de arquitectura</label>
+                  <div id="ant-revisor-chips" class="ant-chips"></div>
+                  <div class="ant-add-row">
+                    <input type="text" id="ant-revisor-input" placeholder="Agregar nombre" maxlength="60" list="ant-revisor-datalist" autocomplete="off" />
+                    <button type="button" class="btn-sm" id="ant-revisor-add">+ Agregar</button>
+                  </div>
+                  <datalist id="ant-revisor-datalist"></datalist>
+                </div>
+
+                <div class="ant-field">
+                  <label>Calculista</label>
+                  <div id="ant-calculista-chips" class="ant-chips"></div>
+                  <div class="ant-add-row">
+                    <input type="text" id="ant-calculista-input" placeholder="Agregar nombre" maxlength="60" list="ant-calculista-datalist" autocomplete="off" />
+                    <button type="button" class="btn-sm" id="ant-calculista-add">+ Agregar</button>
+                  </div>
+                  <datalist id="ant-calculista-datalist"></datalist>
                 </div>
 
               </div>

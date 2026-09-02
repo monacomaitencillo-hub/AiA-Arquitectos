@@ -1547,7 +1547,8 @@ function stripResolvedContent(html) {
   // resumen impreso, y al no quedar pegado a una .task-item pierde el
   // margen achicado (.task-item + p) y se ve como un hueco en blanco — así
   // que se sacan todos los párrafos vacíos, sin importar dónde quedaron.
-  tmp.querySelectorAll('p').forEach(p => {
+  tmp.querySelectorAll('p, div:not(.task-item)').forEach(p => {
+    if (p.closest('.task-item') || p.querySelector('.task-item')) return;
     const text = p.textContent.replace(/ /g, ' ').trim();
     if (!text && !p.querySelector('img')) p.remove();
   });

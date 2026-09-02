@@ -8,7 +8,7 @@
   --accent-rgb: 101, 82, 232;
   --accent-light: #f1eeff;
   --text: #1a1a1a;
-  --text-muted: #6b7280;
+  --text-muted: var(--text);
   --border: #e5e7eb;
   --danger: #ef4444;
   --danger-light: #fef2f2;

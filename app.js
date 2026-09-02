@@ -443,7 +443,7 @@ function renderWikiSidebar() {
 
     item.innerHTML = `
       <div class="section-header" data-section-id="${section.id}">
-        <span class="section-color-dot" style="background:${section.color || '#6b7280'}"></span>
+        <span class="section-color-dot" style="background:${section.color || '#1a1a1a'}"></span>
         <span class="section-name">${escHtml(section.name)}</span>
         <span class="section-toggle">▶</span>
         <div class="section-actions">
@@ -1718,8 +1718,8 @@ function renderResumen() {
 
     return `
       <div class="resumen-section-block">
-        <h3 class="resumen-section-title" style="border-color:${section.color || '#6b7280'}">
-          <span class="resumen-section-dot" style="background:${section.color || '#6b7280'}"></span>
+        <h3 class="resumen-section-title" style="border-color:${section.color || '#1a1a1a'}">
+          <span class="resumen-section-dot" style="background:${section.color || '#1a1a1a'}"></span>
           ${escHtml(section.name)}
         </h3>
         ${entriesHtml}
@@ -2063,7 +2063,7 @@ function renderAdminSections(sections, pages, users) {
 
     return `
       <div class="section-card" data-section-id="${s.id}">
-        <div class="section-card-color" style="background:${s.color || '#6b7280'}"></div>
+        <div class="section-card-color" style="background:${s.color || '#1a1a1a'}"></div>
         <div class="section-card-info">
           <div class="section-card-name">${escHtml(s.name)}</div>
           <div class="section-card-meta">${sectionPages.length} página(s) · Acceso: ${accessLabel}</div>
@@ -2330,7 +2330,7 @@ async function loadActivity() {
           <div class="activity-text">
             <strong>${escHtml(p.title || 'Sin título')}</strong>
             <div class="activity-meta">
-              ${section.name ? `<span style="background:${section.color||'#6b7280'};color:#fff;padding:1px 6px;border-radius:99px;font-size:11px">${escHtml(section.name)}</span> · ` : ''}
+              ${section.name ? `<span style="background:${section.color||'#1a1a1a'};color:#fff;padding:1px 6px;border-radius:99px;font-size:11px">${escHtml(section.name)}</span> · ` : ''}
               ${escHtml(user.name || user.email || p.updatedBy || 'Desconocido')}
             </div>
           </div>

@@ -1539,7 +1539,21 @@ function capitalizeFirst(str) {
 function stripResolvedContent(html) {
   const tmp = document.createElement('div');
   tmp.innerHTML = html;
-  tmp.querySelectorAll('s, strike, .task-item.task-done').forEach(el => el.remove());
+  tmp.querySelectorAll('s, strike').forEach(el => el.remove());
+
+  // Cada tarea tiene un <p><br></p> "espaciador" justo después (para poder
+  // pararse ahí con el cursor); si se saca la tarea resuelta pero no ese
+  // espaciador, queda un párrafo suelto que ya no es adyacente a ninguna
+  // .task-item y pierde el margen achicado (.task-item + p), dejando un
+  // hueco en blanco del alto de un párrafo normal. Se saca junto con ella.
+  tmp.querySelectorAll('.task-item.task-done').forEach(item => {
+    const next = item.nextElementSibling;
+    if (next && next.matches('p') && /^(<br\s*\/?>)?$/i.test(next.innerHTML.trim())) {
+      next.remove();
+    }
+    item.remove();
+  });
+
   tmp.querySelectorAll('.task-checkbox, .task-encargado, .task-due-date').forEach(el => el.disabled = true);
   return tmp.innerHTML;
 }

@@ -1094,6 +1094,14 @@ const ANT_LIST_FIELDS = [
   { key: 'calculista',           chips: 'antCalculistaChips',   input: 'antCalculistaInput',   addBtn: 'antCalculistaAddBtn',   datalist: 'antCalculistaDatalist',   emptyHint: 'Sin calculista asignado' },
 ];
 
+// Los nombres cargados en cada campo se ven de a uno (chips) solo cuando el
+// usuario los despliega a propósito: por defecto la ficha muestra nomás un
+// contador ("N nombres"), para que la fila no crezca con la cantidad de
+// gente cargada — clave en el celular, donde cada chip ocupaba un renglón
+// propio. Se resetea a "cerrado" en cada carga de página (ver
+// renderAntecedentesPanel); agregar o quitar un nombre no lo abre solo.
+const antChipsExpanded = {};
+
 function normalizeAntecedentes(raw) {
   // m2Total: si la página venía del esquema viejo (lista de m² por unidad),
   // se suma esa lista como valor de arranque para no perder lo ya cargado.
@@ -1134,6 +1142,7 @@ function renderAntecedentesPanel(canEdit) {
     DOM[f.input].disabled = !canEdit;
     DOM[f.addBtn].style.display = canEdit ? '' : 'none';
     DOM[f.input].style.display = canEdit ? '' : 'none';
+    antChipsExpanded[f.key] = false;
     renderAntListChips(f, canEdit);
     renderAntListDatalist(f);
   });
@@ -1154,16 +1163,41 @@ function renderAntListDatalist(field) {
 
 function renderAntListChips(field, canEdit) {
   const list = state.antecedentes[field.key];
-  DOM[field.chips].innerHTML = list.length
-    ? list.map((name, i) => `
+  const container = DOM[field.chips];
+
+  if (!list.length) {
+    container.innerHTML = `<span class="ant-empty-hint">${field.emptyHint}</span>`;
+    return;
+  }
+
+  if (!antChipsExpanded[field.key]) {
+    container.innerHTML = `
+      <button type="button" class="ant-chips-toggle">
+        ${list.length} nombre${list.length === 1 ? '' : 's'} ▸
+      </button>
+    `;
+    container.querySelector('.ant-chips-toggle').addEventListener('click', () => {
+      antChipsExpanded[field.key] = true;
+      renderAntListChips(field, canEdit);
+    });
+    return;
+  }
+
+  container.innerHTML = `
+    <button type="button" class="ant-chips-toggle ant-chips-toggle-open">Ocultar ▾</button>
+    ${list.map((name, i) => `
       <span class="ant-chip">
         ${escHtml(name)}
         ${canEdit ? `<button type="button" class="ant-chip-remove" data-index="${i}" title="Quitar">×</button>` : ''}
       </span>
-    `).join('')
-    : `<span class="ant-empty-hint">${field.emptyHint}</span>`;
+    `).join('')}
+  `;
 
-  DOM[field.chips].querySelectorAll('.ant-chip-remove').forEach(btn => {
+  container.querySelector('.ant-chips-toggle-open').addEventListener('click', () => {
+    antChipsExpanded[field.key] = false;
+    renderAntListChips(field, canEdit);
+  });
+  container.querySelectorAll('.ant-chip-remove').forEach(btn => {
     btn.addEventListener('click', () => {
       state.antecedentes[field.key].splice(parseInt(btn.dataset.index, 10), 1);
       renderAntListChips(field, true);

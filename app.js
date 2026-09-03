@@ -33,7 +33,8 @@ const state = {
   currentPageId: null,
   autosaveTimer: null,
   isDirty:     false,
-  antecedentes: { comuna: '', unidades: null, m2Total: null, encargados: '', revisorArquitectura: '', calculista: '' },
+  antecedentes: { comuna: '', unidades: null, m2Total: null, encargados: [], revisorArquitectura: [], calculista: [] },
+  optionLists: { comunas: [], revisores: [], calculistas: [], encargados: [] },
 };
 
 // Predefined section colors
@@ -92,9 +93,10 @@ const DOM = {
   antComuna:         $('ant-comuna'),
   antUnidades:       $('ant-unidades'),
   antM2Total:        $('ant-m2total'),
-  antEncargados:     $('ant-encargados'),
-  antRevisor:        $('ant-revisor'),
-  antCalculista:     $('ant-calculista'),
+  antComunaField:      $('ant-comuna-field'),
+  antRevisorField:     $('ant-revisor-field'),
+  antCalculistaField:  $('ant-calculista-field'),
+  antEncargadosField:  $('ant-encargados-field'),
   // Resumen
   resumenModule:         $('resumen-module'),
   resumenEmptyState:     $('resumen-empty-state'),
@@ -279,6 +281,7 @@ function initApp() {
   initTaskColumnResize();
   initAntecedentesPanel();
   loadWiki();
+  loadOptionLists();
   loadDropboxLinks();
 
   // Acceso directo a Administración (ver admin.html) sin pasar por Reuniones.
@@ -736,6 +739,12 @@ function initEditorToolbar() {
         !e.target.closest('#title-size-btn') && !e.target.closest('#title-size-popover')) {
       DOM.titleSizePopover.classList.add('hidden');
     }
+    ANT_SELECT_FIELDS.forEach(f => {
+      if (antSelectOpen[f.key] && !DOM[f.container].contains(e.target)) {
+        antSelectOpen[f.key] = false;
+        renderAntSelectField(f);
+      }
+    });
   });
 
   // Color y tamaño del título de la página
@@ -1076,14 +1085,28 @@ function openInsertDateModal() {
 // WIKI — ANTECEDENTES PANEL (ficha fija por página: comuna, encargados, m², unidades)
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Campos de texto libre de la ficha de antecedentes: el usuario escribe
-// todos los nombres juntos en un mismo cuadro (ej. "Alex / Martin"), sin
-// botón de agregar ni chips — un campo de texto normal como comuna o m².
-const ANT_TEXT_FIELDS = [
-  { key: 'encargados',          dom: 'antEncargados' },
-  { key: 'revisorArquitectura', dom: 'antRevisor' },
-  { key: 'calculista',          dom: 'antCalculista' },
+// Comunas fijas de base (siempre disponibles, no se pueden borrar de la
+// lista). Las agregadas a mano con "+" se guardan aparte en Firestore
+// (state.optionLists.comunas) y se suman a estas.
+const BASE_COMUNAS = [
+  'Arica', 'Iquique', 'Antofagasta', 'Calama', 'La Serena', 'Coquimbo',
+  'Valparaíso', 'Quilpué', 'Santiago', 'Machalí',
 ];
+
+// Campos "desplegable con lista editable" de la ficha de antecedentes:
+// cada uno tiene un botón que abre un popover con checkboxes (o radios
+// para comuna, que es de un solo valor), un "+" para sumar un nombre
+// nuevo a la lista compartida (visible en todas las obras) y una "×"
+// por opción para sacarla de esa lista compartida.
+const ANT_SELECT_FIELDS = [
+  { key: 'comuna',              container: 'antComunaField',     listKey: 'comunas',     multi: false, emptyHint: '-- Seleccionar --' },
+  { key: 'revisorArquitectura', container: 'antRevisorField',    listKey: 'revisores',   multi: true,  emptyHint: 'Sin revisor asignado' },
+  { key: 'calculista',          container: 'antCalculistaField', listKey: 'calculistas', multi: true,  emptyHint: 'Sin calculista asignado' },
+  { key: 'encargados',          container: 'antEncargadosField', listKey: 'encargados',  multi: true,  emptyHint: 'Sin encargados' },
+];
+
+const antSelectOpen = {};
+let antCanEdit = false;
 
 function normalizeAntecedentes(raw) {
   // m2Total: si la página venía del esquema viejo (lista de m² por unidad),
@@ -1093,29 +1116,81 @@ function normalizeAntecedentes(raw) {
     : null;
 
   const out = {
-    comuna: raw?.comuna || '',
     unidades: (raw?.unidades === 0 || raw?.unidades) ? Number(raw.unidades) : null,
     m2Total: (raw?.m2Total === 0 || raw?.m2Total) ? Number(raw.m2Total) : legacyM2Sum,
   };
-  ANT_TEXT_FIELDS.forEach(f => {
-    // Dato legado: estos campos se guardaban como array de chips. Se unen
-    // con " / " para no perder lo ya cargado al pasar al campo de texto.
-    out[f.key] = Array.isArray(raw?.[f.key]) ? raw[f.key].join(' / ') : (raw?.[f.key] || '');
+  ANT_SELECT_FIELDS.forEach(f => {
+    const v = raw?.[f.key];
+    if (!f.multi) {
+      // Dato legado: si alguna vez quedó guardado como array de un elemento.
+      out[f.key] = Array.isArray(v) ? (v[0] || '') : (v || '');
+      return;
+    }
+    // Dato legado: estos campos pasaron brevemente por un esquema de texto
+    // libre (string con " / "); se separan para no perder lo ya cargado.
+    if (Array.isArray(v)) out[f.key] = v.filter(Boolean);
+    else if (typeof v === 'string' && v.trim()) out[f.key] = v.split('/').map(s => s.trim()).filter(Boolean);
+    else out[f.key] = [];
   });
   return out;
 }
 
+async function loadOptionLists() {
+  try {
+    const doc = await db.collection('config').doc('optionLists').get();
+    const d = doc.exists ? doc.data() : {};
+    state.optionLists = {
+      comunas:     Array.isArray(d.comunas)     ? d.comunas     : [],
+      revisores:   Array.isArray(d.revisores)   ? d.revisores   : [],
+      calculistas: Array.isArray(d.calculistas) ? d.calculistas : [],
+      encargados:  Array.isArray(d.encargados)  ? d.encargados  : [],
+    };
+  } catch (err) {
+    console.error('loadOptionLists error:', err);
+  }
+  // Si ya hay una obra abierta, refresca las opciones visibles con la lista recién cargada.
+  if (state.currentPageId) ANT_SELECT_FIELDS.forEach(f => renderAntSelectField(f));
+}
+
+async function addOptionListValue(listKey, value) {
+  if (!state.optionLists[listKey].includes(value)) {
+    state.optionLists[listKey] = [...state.optionLists[listKey], value].sort((a, b) => a.localeCompare(b, 'es'));
+  }
+  try {
+    await db.collection('config').doc('optionLists').set(
+      { [listKey]: firebase.firestore.FieldValue.arrayUnion(value) },
+      { merge: true }
+    );
+  } catch (err) {
+    console.error('addOptionListValue error:', err);
+    toast('Error al guardar la nueva opción.', 'error');
+  }
+}
+
+async function removeOptionListValue(listKey, value) {
+  state.optionLists[listKey] = state.optionLists[listKey].filter(v => v !== value);
+  try {
+    await db.collection('config').doc('optionLists').set(
+      { [listKey]: firebase.firestore.FieldValue.arrayRemove(value) },
+      { merge: true }
+    );
+  } catch (err) {
+    console.error('removeOptionListValue error:', err);
+    toast('Error al quitar la opción.', 'error');
+  }
+}
+
+// Opciones visibles del desplegable: para comuna, la lista fija de base
+// más las agregadas a mano; para el resto, solo las agregadas a mano.
+function antFieldOptions(field) {
+  const custom = state.optionLists[field.listKey] || [];
+  const all = field.key === 'comuna' ? new Set([...BASE_COMUNAS, ...custom]) : new Set(custom);
+  return Array.from(all).sort((a, b) => a.localeCompare(b, 'es'));
+}
+
 function renderAntecedentesPanel(canEdit) {
   const a = state.antecedentes;
-
-  // Si la comuna guardada no está entre las opciones fijas (dato legado en
-  // texto libre), se agrega como opción extra para no perder el valor.
-  if (a.comuna && !Array.from(DOM.antComuna.options).some(o => o.value === a.comuna)) {
-    const legacyOpt = new Option(a.comuna, a.comuna);
-    DOM.antComuna.add(legacyOpt);
-  }
-  DOM.antComuna.value = a.comuna || '';
-  DOM.antComuna.disabled = !canEdit;
+  antCanEdit = canEdit;
 
   DOM.antUnidades.value = a.unidades ?? '';
   DOM.antUnidades.disabled = !canEdit;
@@ -1123,18 +1198,118 @@ function renderAntecedentesPanel(canEdit) {
   DOM.antM2Total.value = a.m2Total ?? '';
   DOM.antM2Total.disabled = !canEdit;
 
-  ANT_TEXT_FIELDS.forEach(f => {
-    DOM[f.dom].value = a[f.key] || '';
-    DOM[f.dom].disabled = !canEdit;
+  ANT_SELECT_FIELDS.forEach(f => {
+    antSelectOpen[f.key] = false;
+    renderAntSelectField(f);
   });
 }
 
-function initAntecedentesPanel() {
-  DOM.antComuna.addEventListener('change', () => {
-    state.antecedentes.comuna = DOM.antComuna.value;
-    scheduleAutosave();
+function renderAntSelectField(field) {
+  const container = DOM[field.container];
+  const a = state.antecedentes;
+  const canEdit = antCanEdit;
+  const selected = field.multi ? (a[field.key] || []) : (a[field.key] ? [a[field.key]] : []);
+  const options = antFieldOptions(field);
+  const isOpen = !!antSelectOpen[field.key];
+  const summary = selected.length ? selected.join(' / ') : field.emptyHint;
+
+  const optionsHtml = options.length
+    ? options.map(opt => {
+        const checked = selected.includes(opt);
+        const removable = canEdit && !(field.key === 'comuna' && BASE_COMUNAS.includes(opt));
+        return `
+          <label class="ant-select-option">
+            <input type="${field.multi ? 'checkbox' : 'radio'}" name="ant-select-${field.key}" value="${escHtml(opt)}" ${checked ? 'checked' : ''} ${canEdit ? '' : 'disabled'} />
+            <span>${escHtml(opt)}</span>
+            ${removable ? `<button type="button" class="ant-select-remove" data-value="${escHtml(opt)}" title="Quitar de la lista">×</button>` : ''}
+          </label>
+        `;
+      }).join('')
+    : `<div class="ant-select-empty">Sin opciones todavía</div>`;
+
+  container.innerHTML = `
+    <button type="button" class="ant-select-btn" ${canEdit ? '' : 'disabled'}>
+      <span class="ant-select-btn-text">${escHtml(summary)}</span>
+      <span class="ant-select-chevron">▾</span>
+    </button>
+    <div class="ant-select-popover ${isOpen ? '' : 'hidden'}">
+      <div class="ant-select-options">${optionsHtml}</div>
+      ${canEdit ? `
+        <div class="ant-select-add-row">
+          <input type="text" class="ant-select-add-input" placeholder="Agregar nuevo..." maxlength="60" />
+          <button type="button" class="btn-sm ant-select-add-btn">+</button>
+        </div>
+      ` : ''}
+    </div>
+  `;
+
+  if (!canEdit) return;
+
+  container.querySelector('.ant-select-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    antSelectOpen[field.key] = !antSelectOpen[field.key];
+    renderAntSelectField(field);
   });
 
+  container.querySelectorAll(`input[name="ant-select-${field.key}"]`).forEach(input => {
+    input.addEventListener('change', () => {
+      if (field.multi) {
+        const set = new Set(a[field.key] || []);
+        if (input.checked) set.add(input.value); else set.delete(input.value);
+        a[field.key] = Array.from(set);
+      } else {
+        a[field.key] = input.checked ? input.value : '';
+        antSelectOpen[field.key] = false;
+      }
+      saveAntecedentesNow();
+      renderAntSelectField(field);
+    });
+  });
+
+  container.querySelectorAll('.ant-select-remove').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const value = btn.dataset.value;
+      if (field.multi) a[field.key] = (a[field.key] || []).filter(v => v !== value);
+      else if (a[field.key] === value) a[field.key] = '';
+      await removeOptionListValue(field.listKey, value);
+      saveAntecedentesNow();
+      renderAntSelectField(field);
+    });
+  });
+
+  const addInput = container.querySelector('.ant-select-add-input');
+  const addBtn = container.querySelector('.ant-select-add-btn');
+  const doAdd = async () => {
+    const value = addInput.value.trim();
+    if (!value) return;
+    await addOptionListValue(field.listKey, value);
+    if (field.multi) {
+      a[field.key] = Array.from(new Set([...(a[field.key] || []), value]));
+    } else {
+      a[field.key] = value;
+      antSelectOpen[field.key] = false;
+    }
+    saveAntecedentesNow();
+    renderAntSelectField(field);
+  };
+  addBtn.addEventListener('click', e => { e.stopPropagation(); doAdd(); });
+  addInput.addEventListener('click', e => e.stopPropagation());
+  addInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); doAdd(); }
+  });
+}
+
+// Guarda de inmediato (sin el debounce de 1.2s de scheduleAutosave) para
+// acciones puntuales de selección (marcar/agregar/quitar) donde el usuario
+// espera que quede guardado ya mismo, incluso si recarga la página al toque.
+function saveAntecedentesNow() {
+  clearTimeout(state.autosaveTimer);
+  setSaveIndicator('saving');
+  performAutosave();
+}
+
+function initAntecedentesPanel() {
   DOM.antUnidades.addEventListener('input', () => {
     const v = DOM.antUnidades.value;
     state.antecedentes.unidades = v === '' ? null : Number(v);
@@ -1145,13 +1320,6 @@ function initAntecedentesPanel() {
     const v = DOM.antM2Total.value;
     state.antecedentes.m2Total = v === '' ? null : Number(v);
     scheduleAutosave();
-  });
-
-  ANT_TEXT_FIELDS.forEach(f => {
-    DOM[f.dom].addEventListener('input', () => {
-      state.antecedentes[f.key] = DOM[f.dom].value;
-      scheduleAutosave();
-    });
   });
 }
 

@@ -398,6 +398,39 @@ a:hover { text-decoration: underline; }
 
 .ant-empty-hint { font-size: 12px; color: var(--text-muted); font-style: italic; }
 
+.ant-select-field { position: relative; }
+.ant-select-btn {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 6px 8px; font-size: 13px; background: var(--bg); color: var(--text);
+  text-align: left;
+}
+.ant-select-btn:hover { border-color: var(--accent); }
+.ant-select-btn:disabled { color: var(--text-muted); background: var(--sidebar-hover); cursor: default; }
+.ant-select-btn-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ant-select-chevron { flex-shrink: 0; color: var(--text-muted); font-size: 11px; }
+.ant-select-popover {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 20; width: max(100%, 220px);
+  border-radius: 8px; background: var(--bg); border: 1px solid var(--border);
+  box-shadow: 0 4px 16px rgba(0,0,0,.15); padding: 6px;
+}
+.ant-select-popover.hidden { display: none; }
+.ant-select-options { display: flex; flex-direction: column; max-height: 220px; overflow-y: auto; }
+.ant-select-option {
+  display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 5px; font-size: 13px;
+}
+.ant-select-option:hover { background: var(--sidebar-hover); }
+.ant-select-option span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ant-select-remove {
+  flex-shrink: 0; color: var(--text-muted); opacity: .6; font-size: 14px; line-height: 1;
+  padding: 2px 4px; border-radius: 50%;
+}
+.ant-select-remove:hover { opacity: 1; background: rgba(var(--accent-rgb),.15); color: var(--accent); }
+.ant-select-empty { font-size: 12px; color: var(--text-muted); font-style: italic; padding: 5px 6px; }
+.ant-select-add-row { display: flex; gap: 6px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); }
+.ant-select-add-row input { flex: 1; min-width: 0; border: 1px solid var(--border); border-radius: var(--radius); padding: 5px 8px; font-size: 12px; background: var(--bg); color: var(--text); }
+.ant-select-add-row .btn-sm { flex-shrink: 0; padding: 5px 10px; font-size: 12px; }
+
 @media (max-width: 900px) {
   #antecedentes-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

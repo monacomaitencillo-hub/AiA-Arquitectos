@@ -67,5 +67,12 @@ service cloud.firestore {
 
       allow delete: if isAdmin();
     }
+
+    // ── Config collection (listas compartidas: comunas, revisores,
+    // calculistas, encargados de la ficha de Antecedentes) ─────────────────
+    match /config/{docId} {
+      allow read: if isActive();
+      allow write: if isEditorOrAdmin();
+    }
   }
 }

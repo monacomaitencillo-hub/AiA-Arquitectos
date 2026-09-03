@@ -2545,6 +2545,11 @@ function openAddDropboxLinkModal(onAdd) {
   openModal({
     title: 'Agregar enlace de Dropbox',
     body: `
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">
+        ¿No tenés el link a mano? Buscá el archivo en
+        <a href="https://www.dropbox.com/home" target="_blank" rel="noopener noreferrer">Dropbox de la oficina (aia.arq@gmail.com) ↗</a>
+        y copiá su enlace para compartir.
+      </p>
       <div class="form-group">
         <label>Nombre del archivo</label>
         <input id="m-link-name" type="text" placeholder="Ej: OGUC-Noviembre-2024.pdf" maxlength="120" />

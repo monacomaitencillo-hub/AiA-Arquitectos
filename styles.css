@@ -564,7 +564,7 @@ input[type="date"] { -webkit-appearance: none; appearance: none; }
 #editor-content .task-item + p { margin: 0 0 2px; line-height: .4; }
 .task-checkbox { flex-shrink: 0; width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); align-self: center; margin: 0 0 0 10px; }
 .task-text {
-  flex: 1; min-width: 0; padding: 6px 6px; align-self: center; font-size: 12px;
+  flex: 1; min-width: 0; padding: 6px 6px; align-self: center; font-size: 11px;
   white-space: normal; overflow-wrap: break-word; line-height: 1.4;
 }
 .task-item[data-priority="media"] .task-text { color: var(--warning); }

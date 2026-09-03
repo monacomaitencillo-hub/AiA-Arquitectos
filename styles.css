@@ -563,6 +563,10 @@ a:hover { text-decoration: underline; }
 }
 .task-encargado { width: var(--task-encargado-w); border-left: 1px solid var(--border); }
 .task-encargado::placeholder { color: var(--text-muted); }
+/* Ocultas para darle más ancho a la tarea — el dato sigue guardado (no se
+   borra), así que alcanza con sacar este display:none para que vuelvan. */
+.task-encargado,
+.task-col-resize[data-col="encargado"] { display: none; }
 .task-due-date { width: var(--task-due-date-w); padding: 6px 2px; color: var(--text-muted); }
 .task-encargado:focus, .task-due-date:focus { background: var(--accent-light); color: var(--text); }
 .task-encargado:disabled, .task-due-date:disabled { opacity: .8; }

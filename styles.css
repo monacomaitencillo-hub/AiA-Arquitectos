@@ -421,12 +421,28 @@ a:hover { text-decoration: underline; }
 }
 .ant-select-option:hover { background: var(--sidebar-hover); }
 .ant-select-option span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ant-select-edit,
 .ant-select-remove {
   flex-shrink: 0; color: var(--text-muted); opacity: .6; font-size: 14px; line-height: 1;
   padding: 2px 4px; border-radius: 50%;
 }
+.ant-select-edit:hover,
 .ant-select-remove:hover { opacity: 1; background: rgba(var(--accent-rgb),.15); color: var(--accent); }
 .ant-select-empty { font-size: 12px; color: var(--text-muted); font-style: italic; padding: 5px 6px; }
+
+.ant-select-option-editing { padding: 3px 6px; gap: 6px; }
+.ant-select-rename-input {
+  flex: 1; min-width: 0; border: 1px solid var(--accent); border-radius: var(--radius);
+  padding: 4px 6px; font-size: 13px; background: var(--bg); color: var(--text);
+}
+.ant-select-rename-save,
+.ant-select-rename-cancel {
+  flex-shrink: 0; font-size: 14px; line-height: 1; padding: 3px 5px; border-radius: 50%;
+}
+.ant-select-rename-save { color: var(--success); }
+.ant-select-rename-save:hover { background: rgba(22,163,74,.15); }
+.ant-select-rename-cancel { color: var(--danger); }
+.ant-select-rename-cancel:hover { background: var(--danger-light); }
 .ant-select-add-row { display: flex; gap: 6px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); }
 .ant-select-add-row input { flex: 1; min-width: 0; border: 1px solid var(--border); border-radius: var(--radius); padding: 5px 8px; font-size: 12px; background: var(--bg); color: var(--text); }
 .ant-select-add-row .btn-sm { flex-shrink: 0; padding: 5px 10px; font-size: 12px; }

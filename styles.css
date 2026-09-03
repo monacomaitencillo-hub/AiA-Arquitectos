@@ -1060,8 +1060,7 @@ input[type="date"] { -webkit-appearance: none; appearance: none; }
   .ant-field input[type="number"],
   .ant-field input[type="text"],
   .ant-select-add-input,
-  .ant-select-rename-input,
-  .task-due-date { font-size: 16px; }
+  .ant-select-rename-input { font-size: 16px; }
 
   #editor-content { padding: 16px; }
   #editor-header { padding: 12px 16px 8px; }
@@ -1082,9 +1081,14 @@ input[type="date"] { -webkit-appearance: none; appearance: none; }
   .ant-select-option input[type="checkbox"],
   .ant-select-option input[type="radio"] { width: 18px; height: 18px; }
 
-  /* La fecha de entrega necesita más ancho para no recortarse con la letra
-     más grande de arriba. */
-  .task-due-date { width: 108px; }
+  /* En Android, un <input type="date"> vacío se dibuja con su recuadro
+     nativo (con el color del tema del teléfono) mucho más ancho de lo
+     pedido pese al appearance:none de arriba — inconsistente entre
+     versiones, no da para confiar en poder domarlo por CSS. Se oculta acá
+     como con Encargado: el dato sigue guardado, se sigue viendo y editando
+     desde la compu. */
+  .task-due-date,
+  .task-col-resize[data-col="due"] { display: none; }
 
   #resumen-report-area { width: 100%; }
   #resumen-report { padding: 8px 16px 60px; }

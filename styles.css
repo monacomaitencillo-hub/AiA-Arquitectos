@@ -805,14 +805,24 @@ input[type="date"] { -webkit-appearance: none; appearance: none; }
   display: flex; align-items: center; gap: 8px;
   padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 13px;
 }
-.municipal-file-row a { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.municipal-file-name {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  text-align: left; color: var(--accent);
+}
+.municipal-file-name:hover { text-decoration: underline; }
+.municipal-file-open { flex-shrink: 0; font-size: 12px; color: var(--text-muted); }
+.municipal-file-open:hover { color: var(--accent); }
 .municipal-file-size { flex-shrink: 0; font-size: 11px; color: var(--text-muted); }
 .municipal-file-remove {
   flex-shrink: 0; color: var(--text-muted); opacity: .6; font-size: 14px; line-height: 1;
   padding: 2px 4px; border-radius: 50%;
 }
 .municipal-file-remove:hover { opacity: 1; background: rgba(var(--accent-rgb),.15); color: var(--accent); }
-#municipal-upload-status { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+#municipal-upload-status, .library-upload-status { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+.municipal-file-preview {
+  margin: 4px 0 6px; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
+}
+.municipal-file-preview iframe { width: 100%; height: 60vh; min-height: 320px; border: none; display: block; }
 
 /* Normativas (y cualquier otro ítem 'library') — grupos armados a mano
    para juntar PDFs sueltos, sin obras/secciones de por medio. */
@@ -827,7 +837,6 @@ input[type="date"] { -webkit-appearance: none; appearance: none; }
 .library-group-name { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; color: var(--text); }
 .library-upload-btn { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; flex-shrink: 0; }
 .library-group-delete { flex-shrink: 0; }
-.library-upload-status { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /* ADMIN MODULE                                                                */

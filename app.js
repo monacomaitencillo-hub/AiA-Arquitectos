@@ -2475,7 +2475,8 @@ function renderPlanosNotesEditor() {
           ? '<p class="ant-empty-hint">Sin archivos todavía</p>'
           : item.files.map((f, i) => `
             <div class="municipal-file-row">
-              <a href="${escHtml(f.url)}" target="_blank" rel="noopener noreferrer">${escHtml(f.name)}</a>
+              <button type="button" class="municipal-file-name" data-url="${escHtml(f.url)}" data-name="${escHtml(f.name)}">${escHtml(f.name)}</button>
+              <a class="municipal-file-open" href="${escHtml(f.url)}" target="_blank" rel="noopener noreferrer" title="Abrir en pestaña nueva">↗</a>
               <span class="municipal-file-size">${formatFileSize(f.size)}</span>
               ${canEdit ? `<button type="button" class="municipal-file-remove" data-index="${i}" title="Eliminar">×</button>` : ''}
             </div>
@@ -2484,6 +2485,8 @@ function renderPlanosNotesEditor() {
       <div id="municipal-upload-status"></div>
     </div>
   `;
+
+  bindFileRowPreviews(editor);
 
   if (!canEdit) return;
 
@@ -2514,6 +2517,44 @@ function formatFileSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+// Sube un archivo a Storage reportando progreso (0-100) a medida que va,
+// en vez de solo saber al final si terminó — para que en archivos grandes
+// o conexiones lentas se vea que efectivamente está avanzando.
+function uploadFileWithProgress(path, file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const task = storage.ref(path).put(file);
+    task.on('state_changed',
+      snap => onProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)),
+      reject,
+      () => task.snapshot.ref.getDownloadURL().then(resolve).catch(reject)
+    );
+  });
+}
+
+// Alterna una vista previa embebida (iframe) del PDF justo debajo de su
+// fila, para poder leerlo ahí mismo sin salir de la página. Solo deja una
+// abierta a la vez dentro de la misma lista.
+function toggleInlinePdfPreview(rowEl, url, name) {
+  const next = rowEl.nextElementSibling;
+  if (next && next.classList.contains('municipal-file-preview')) {
+    next.remove();
+    return;
+  }
+  rowEl.parentElement.querySelectorAll('.municipal-file-preview').forEach(el => el.remove());
+  const preview = document.createElement('div');
+  preview.className = 'municipal-file-preview';
+  preview.innerHTML = `<iframe src="${escHtml(url)}" title="${escHtml(name)}"></iframe>`;
+  rowEl.after(preview);
+}
+
+function bindFileRowPreviews(container) {
+  container.querySelectorAll('.municipal-file-name').forEach(btn => {
+    btn.addEventListener('click', () => {
+      toggleInlinePdfPreview(btn.closest('.municipal-file-row'), btn.dataset.url, btn.dataset.name);
+    });
+  });
+}
+
 async function savePlanosNotesText(pageId, notes) {
   const item = planosNotesState.items.find(it => it.id === pageId);
   if (item) item.notes = notes;
@@ -2532,13 +2573,19 @@ async function uploadPlanosNotesFiles(pageId, files) {
   const item = planosNotesState.items.find(it => it.id === pageId);
   if (!item) return;
 
-  for (const file of files) {
-    if (status) status.textContent = `Subiendo ${file.name}...`;
+  const progress = {};
+  const renderStatus = () => {
+    if (status) status.innerHTML = Object.entries(progress).map(([name, pct]) => `<div>${escHtml(name)}: ${pct}%</div>`).join('');
+  };
+
+  // En paralelo: con varios PDFs a la vez, subirlos uno por uno (como
+  // antes) tardaba la suma de todos; así tardan lo que tarda el más lento.
+  await Promise.all(files.map(async file => {
+    progress[file.name] = 0;
+    renderStatus();
     const path = `planos/${pageId}/${Date.now()}_${file.name}`;
     try {
-      const ref = storage.ref(path);
-      await ref.put(file);
-      const url = await ref.getDownloadURL();
+      const url = await uploadFileWithProgress(path, file, pct => { progress[file.name] = pct; renderStatus(); });
       const meta = { name: file.name, path, url, size: file.size, uploadedAt: new Date().toISOString() };
       await db.collection('planosPages').doc(pageId).update({
         files: firebase.firestore.FieldValue.arrayUnion(meta),
@@ -2548,9 +2595,11 @@ async function uploadPlanosNotesFiles(pageId, files) {
     } catch (err) {
       console.error('uploadPlanosNotesFiles error:', err);
       toast(`Error al subir ${file.name}: ` + err.message, 'error');
+    } finally {
+      delete progress[file.name];
+      renderStatus();
     }
-  }
-  if (status) status.textContent = '';
+  }));
   renderPlanosNotesEditor();
 }
 
@@ -2650,7 +2699,8 @@ function renderPlanosLibraryArea(entry) {
                 ? '<p class="ant-empty-hint">Sin archivos todavía</p>'
                 : g.files.map((f, i) => `
                   <div class="municipal-file-row">
-                    <a href="${escHtml(f.url)}" target="_blank" rel="noopener noreferrer">${escHtml(f.name)}</a>
+                    <button type="button" class="municipal-file-name" data-url="${escHtml(f.url)}" data-name="${escHtml(f.name)}">${escHtml(f.name)}</button>
+                    <a class="municipal-file-open" href="${escHtml(f.url)}" target="_blank" rel="noopener noreferrer" title="Abrir en pestaña nueva">↗</a>
                     <span class="municipal-file-size">${formatFileSize(f.size)}</span>
                     ${canEdit ? `<button type="button" class="library-file-remove" data-id="${g.id}" data-index="${i}" title="Eliminar">×</button>` : ''}
                   </div>
@@ -2661,6 +2711,8 @@ function renderPlanosLibraryArea(entry) {
         `).join('')}
     </div>
   `;
+
+  bindFileRowPreviews(container);
 
   if (!canEdit) return;
 
@@ -2742,13 +2794,19 @@ async function uploadPlanosGroupFiles(groupId, files) {
   const group = planosLibraryState.groups.find(g => g.id === groupId);
   if (!group) return;
 
-  for (const file of files) {
-    if (status) status.textContent = `Subiendo ${file.name}...`;
+  const progress = {};
+  const renderStatus = () => {
+    if (status) status.innerHTML = Object.entries(progress).map(([name, pct]) => `<div>${escHtml(name)}: ${pct}%</div>`).join('');
+  };
+
+  // En paralelo: con varios PDFs a la vez, subirlos uno por uno (como
+  // antes) tardaba la suma de todos; así tardan lo que tarda el más lento.
+  await Promise.all(files.map(async file => {
+    progress[file.name] = 0;
+    renderStatus();
     const path = `planos/${groupId}/${Date.now()}_${file.name}`;
     try {
-      const ref = storage.ref(path);
-      await ref.put(file);
-      const url = await ref.getDownloadURL();
+      const url = await uploadFileWithProgress(path, file, pct => { progress[file.name] = pct; renderStatus(); });
       const meta = { name: file.name, path, url, size: file.size, uploadedAt: new Date().toISOString() };
       await db.collection('planosGroups').doc(groupId).update({
         files: firebase.firestore.FieldValue.arrayUnion(meta),
@@ -2757,8 +2815,11 @@ async function uploadPlanosGroupFiles(groupId, files) {
     } catch (err) {
       console.error('uploadPlanosGroupFiles error:', err);
       toast(`Error al subir ${file.name}: ` + err.message, 'error');
+    } finally {
+      delete progress[file.name];
+      renderStatus();
     }
-  }
+  }));
   const entry = DROPBOX_LINKS.find(e => e.id === planosLibraryState.parentId);
   if (entry) renderPlanosLibraryArea(entry);
 }

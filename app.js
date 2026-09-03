@@ -90,13 +90,13 @@ const DOM = {
   titleSizeBtn:      $('title-size-btn'),
   titleSizePopover:  $('title-size-popover'),
   // Antecedentes
-  antComuna:         $('ant-comuna'),
   antUnidades:       $('ant-unidades'),
   antM2Total:        $('ant-m2total'),
   antComunaField:      $('ant-comuna-field'),
   antRevisorField:     $('ant-revisor-field'),
   antCalculistaField:  $('ant-calculista-field'),
   antEncargadosField:  $('ant-encargados-field'),
+  antEncargadosDatalist: $('ant-encargados-datalist'),
   // Resumen
   resumenModule:         $('resumen-module'),
   resumenEmptyState:     $('resumen-empty-state'),
@@ -104,7 +104,10 @@ const DOM = {
   resumenReport:         $('resumen-report'),
   resumenTitle:          $('resumen-title'),
   resumenMeta:           $('resumen-meta'),
+  resumenFilterMode:     $('resumen-filter-mode'),
+  resumenFilterEncargado:$('resumen-filter-encargado'),
   resumenPrintBtn:       $('resumen-print-btn'),
+  resumenEmailBtn:       $('resumen-email-btn'),
   // Dropbox links (Detalles Constructivos / Proyectos con Permiso)
   planosModule:  $('planos-module'),
   planosSidebar: $('planos-sidebar'),
@@ -1150,6 +1153,15 @@ async function loadOptionLists() {
   }
   // Si ya hay una obra abierta, refresca las opciones visibles con la lista recién cargada.
   if (state.currentPageId) ANT_SELECT_FIELDS.forEach(f => renderAntSelectField(f));
+  renderEncargadosDatalist();
+}
+
+// Sugerencias del campo "Encargado" de cada tarea (☑ Tarea): la misma
+// lista compartida que usa el desplegable de Encargado/s de Antecedentes.
+function renderEncargadosDatalist() {
+  DOM.antEncargadosDatalist.innerHTML = state.optionLists.encargados
+    .map(n => `<option value="${escHtml(n)}"></option>`)
+    .join('');
 }
 
 async function addOptionListValue(listKey, value) {
@@ -1165,6 +1177,7 @@ async function addOptionListValue(listKey, value) {
     console.error('addOptionListValue error:', err);
     toast('Error al guardar la nueva opción.', 'error');
   }
+  if (listKey === 'encargados') renderEncargadosDatalist();
 }
 
 async function removeOptionListValue(listKey, value) {
@@ -1178,6 +1191,7 @@ async function removeOptionListValue(listKey, value) {
     console.error('removeOptionListValue error:', err);
     toast('Error al quitar la opción.', 'error');
   }
+  if (listKey === 'encargados') renderEncargadosDatalist();
 }
 
 // Opciones visibles del desplegable: para comuna, la lista fija de base
@@ -1619,6 +1633,8 @@ const DATE_HEADING_RE = /(\d{1,2})\s+de\s+(enero|febrero|marzo|abril|mayo|junio|
 
 const resumenState = {
   sectionGroups: [],  // [{ section, entries: [...] }], en el orden de las secciones
+  mode: 'empresa',    // 'empresa' (todo) | 'encargado' (solo obras de una persona)
+  encargado: '',       // nombre elegido cuando mode === 'encargado'
 };
 
 // Clave "AAAA-MM-DD" en hora LOCAL (no usar toISOString: en husos horarios
@@ -1737,7 +1753,7 @@ function splitPageIntoEntries(page) {
 // Una página puede tener varios bloques con fecha real (una por cada vez
 // que se usó "Insertar fecha"); cada uno cuenta como una entrada aparte,
 // ordenada cronológicamente dentro de su empresa.
-function buildResumenData() {
+function buildResumenData(filterEncargado) {
   const sections = getAccessibleSections();
   const sectionById = Object.fromEntries(sections.map(s => [s.id, s]));
   const sectionOrder = new Map(sections.map((s, i) => [s.id, i]));
@@ -1746,6 +1762,12 @@ function buildResumenData() {
   state.pages.forEach(page => {
     const section = sectionById[page.sectionId];
     if (!section) return; // sección no accesible para este usuario
+
+    // Modo "por encargado": solo entran las obras donde esa persona figura
+    // en Antecedentes → Encargado/s (dato de la obra, no de cada tarea).
+    if (filterEncargado && !normalizeAntecedentes(page.antecedentes).encargados.includes(filterEncargado)) {
+      return;
+    }
 
     splitPageIntoEntries(page).forEach(seg => {
       if (!bySection.has(section.id)) {
@@ -1788,15 +1810,38 @@ async function loadResumen() {
     toast('Error al cargar el resumen: ' + err.message, 'error');
   }
 
-  resumenState.sectionGroups = buildResumenData();
+  renderResumenFilterEncargado();
+  recomputeResumen();
+}
+
+// Repuebla el <select> de nombres del filtro "Por encargado" con la lista
+// compartida (la misma que se carga/edita desde Antecedentes), preservando
+// la selección actual si ese nombre sigue estando en la lista.
+function renderResumenFilterEncargado() {
+  const names = state.optionLists.encargados || [];
+  const prev = resumenState.encargado;
+  DOM.resumenFilterEncargado.innerHTML = names.length
+    ? names.map(n => `<option value="${escHtml(n)}">${escHtml(n)}</option>`).join('')
+    : `<option value="">Sin encargados cargados</option>`;
+  resumenState.encargado = names.includes(prev) ? prev : (names[0] || '');
+  DOM.resumenFilterEncargado.value = resumenState.encargado;
+}
+
+function recomputeResumen() {
+  const filter = resumenState.mode === 'encargado' ? resumenState.encargado : '';
+  resumenState.sectionGroups = buildResumenData(filter);
   renderResumen();
 }
 
 function renderResumen() {
   const sectionGroups = resumenState.sectionGroups;
   const totalEntries = sectionGroups.reduce((n, g) => n + g.entries.length, 0);
+  const isEncargadoMode = resumenState.mode === 'encargado';
 
-  if (totalEntries === 0) {
+  // El estado "vacío" de toda la página solo aplica si ni siquiera hay
+  // datos para el modo "por empresa" (sin eso, no hay filtro que mostrar).
+  const hasAnyData = isEncargadoMode ? true : totalEntries > 0;
+  if (!hasAnyData) {
     DOM.resumenEmptyState.classList.remove('hidden');
     DOM.resumenReportContainer.classList.add('hidden');
     return;
@@ -1805,10 +1850,20 @@ function renderResumen() {
   DOM.resumenEmptyState.classList.add('hidden');
   DOM.resumenReportContainer.classList.remove('hidden');
 
-  DOM.resumenTitle.textContent = 'Resumen';
-  DOM.resumenMeta.textContent = `${totalEntries} entrada${totalEntries === 1 ? '' : 's'} · ${sectionGroups.length} ${sectionGroups.length === 1 ? 'empresa' : 'empresas'}`;
-
   const generadoLabel = new Date().toLocaleDateString('es-AR', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  if (isEncargadoMode && !resumenState.encargado) {
+    DOM.resumenTitle.textContent = 'Resumen por encargado';
+    DOM.resumenMeta.textContent = 'Todavía no hay encargados cargados en Antecedentes.';
+    DOM.resumenReport.innerHTML = '';
+    return;
+  }
+
+  const titleLabel = isEncargadoMode ? `Obras a cargo de ${resumenState.encargado}` : 'Resumen por empresa';
+  DOM.resumenTitle.textContent = isEncargadoMode ? `Resumen — ${resumenState.encargado}` : 'Resumen';
+  DOM.resumenMeta.textContent = totalEntries
+    ? `${totalEntries} entrada${totalEntries === 1 ? '' : 's'} · ${sectionGroups.length} ${sectionGroups.length === 1 ? 'empresa' : 'empresas'}`
+    : 'Sin entradas fechadas todavía para esta persona.';
 
   const sectionsHtml = sectionGroups.map(({ section, entries }) => {
     const entriesHtml = entries.map(e => `
@@ -1835,15 +1890,50 @@ function renderResumen() {
   DOM.resumenReport.innerHTML = `
     <div class="resumen-print-header">
       <div class="resumen-print-brand">AiA Arquitectos</div>
-      <h1 class="resumen-print-title">Resumen por empresa</h1>
+      <h1 class="resumen-print-title">${escHtml(titleLabel)}</h1>
       <div class="resumen-print-sub">Generado el ${generadoLabel}</div>
     </div>
-    ${sectionsHtml}
+    ${sectionsHtml || `<p class="resumen-empty-filtered">Sin entradas fechadas todavía para esta persona.</p>`}
   `;
 }
 
+DOM.resumenFilterMode.addEventListener('change', () => {
+  resumenState.mode = DOM.resumenFilterMode.value;
+  DOM.resumenFilterEncargado.classList.toggle('hidden', resumenState.mode !== 'encargado');
+  recomputeResumen();
+});
+
+DOM.resumenFilterEncargado.addEventListener('change', () => {
+  resumenState.encargado = DOM.resumenFilterEncargado.value;
+  recomputeResumen();
+});
+
 DOM.resumenPrintBtn.addEventListener('click', () => {
   window.print();
+});
+
+// "Enviar por correo": abre el cliente de mail del usuario con el resumen
+// actual como texto plano en el cuerpo (mailto no permite HTML ni adjuntar
+// archivos). No envía nada por sí solo — el usuario completa el
+// destinatario y aprieta enviar desde su propio programa de correo.
+DOM.resumenEmailBtn.addEventListener('click', () => {
+  const isEncargadoMode = resumenState.mode === 'encargado';
+  const subject = isEncargadoMode
+    ? `Resumen de obras — ${resumenState.encargado}`
+    : 'Resumen por empresa';
+
+  let body = (DOM.resumenReport.innerText || DOM.resumenReport.textContent || '').trim();
+  if (!body) {
+    toast('No hay contenido en el resumen para enviar.', 'error');
+    return;
+  }
+  const LIMIT = 1500; // los clientes de mail truncan o rechazan mailto: muy largos
+  if (body.length > LIMIT) {
+    body = body.slice(0, LIMIT) + '\n\n(resumen recortado — usá "Imprimir" para verlo completo)';
+  }
+
+  const mailto = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.location.href = mailto;
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

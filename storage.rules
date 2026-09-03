@@ -1,0 +1,31 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    function selfDoc() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isActive() {
+      return isAuthed() && selfDoc().disabled == false;
+    }
+
+    function isEditorOrAdmin() {
+      return isActive() && selfDoc().role in ['admin', 'editor'];
+    }
+
+    // ── Planos — ítems 'notes' (Antecedentes Municipales, Normativas, y
+    // cualquier otro que se agregue) ────────────────────────────────────────
+    // Archivos adjuntos por obra. Lectura para cualquier usuario activo
+    // (mismo criterio que el doc de Firestore que los referencia); solo
+    // editores/admins pueden subir o borrar.
+    match /planos/{pageId}/{fileName} {
+      allow read: if isActive();
+      allow write: if isEditorOrAdmin();
+    }
+  }
+}

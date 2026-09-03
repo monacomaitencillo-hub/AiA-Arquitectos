@@ -755,6 +755,65 @@ input[type="date"] { -webkit-appearance: none; appearance: none; }
 .planos-item:hover { background: var(--sidebar-hover); }
 .planos-item.active { background: var(--accent-light); color: var(--accent); font-weight: 600; }
 
+/* Antecedentes Municipales — mini-wiki dentro de Planos (secciones/obras
+   copiadas de Reuniones, con notas de texto y archivos por obra). */
+.municipal-area { display: flex; height: 100%; overflow: hidden; padding: 0; }
+.municipal-sidebar {
+  width: var(--wiki-sidebar-w); flex-shrink: 0;
+  background: var(--sidebar-bg); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.municipal-sidebar-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 12px 10px; font-size: 12px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted);
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.municipal-sections-list { flex: 1; overflow-y: auto; padding: 6px 8px 16px; }
+.municipal-section-group { margin-bottom: 10px; }
+.municipal-section-name {
+  font-size: 12px; font-weight: 700; color: var(--text); padding: 4px 8px;
+  border-left: 3px solid var(--text); margin-bottom: 2px;
+}
+.municipal-section-empty { font-size: 12px; color: var(--text-muted); font-style: italic; padding: 4px 12px 4px 14px; }
+.municipal-page-item {
+  padding: 7px 10px 7px 14px; border-radius: var(--radius); cursor: pointer;
+  font-size: 13px; color: var(--text); transition: background .12s; margin-bottom: 1px;
+}
+.municipal-page-item:hover { background: var(--sidebar-hover); }
+.municipal-page-item.active { background: var(--accent-light); color: var(--accent); font-weight: 600; }
+.municipal-file-count { font-size: 11px; color: var(--text-muted); }
+.municipal-page-item.active .municipal-file-count { color: var(--accent); }
+
+.municipal-editor { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 20px 28px; overflow-y: auto; }
+.municipal-editor-title { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 12px; }
+#municipal-notes {
+  width: 100%; min-height: 160px; resize: vertical;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 10px 12px; font: inherit; font-size: 14px; color: var(--text); background: var(--bg);
+  line-height: 1.6; margin-bottom: 18px;
+}
+#municipal-notes:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb),.08); }
+#municipal-notes:disabled { color: var(--text-muted); background: var(--sidebar-hover); }
+.municipal-files-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px; font-size: 13px; font-weight: 600; color: var(--text);
+}
+.municipal-upload-btn { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+.municipal-files-list { display: flex; flex-direction: column; gap: 4px; }
+.municipal-file-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 13px;
+}
+.municipal-file-row a { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.municipal-file-size { flex-shrink: 0; font-size: 11px; color: var(--text-muted); }
+.municipal-file-remove {
+  flex-shrink: 0; color: var(--text-muted); opacity: .6; font-size: 14px; line-height: 1;
+  padding: 2px 4px; border-radius: 50%;
+}
+.municipal-file-remove:hover { opacity: 1; background: rgba(var(--accent-rgb),.15); color: var(--accent); }
+#municipal-upload-status { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /* ADMIN MODULE                                                                */
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -1132,6 +1191,10 @@ input[type="date"] { -webkit-appearance: none; appearance: none; }
   #planos-sidebar.open { transform: translateX(0); box-shadow: var(--shadow-lg); }
 
   #planos-area { width: 100%; }
+
+  .municipal-area { flex-direction: column; }
+  .municipal-sidebar { width: 100%; max-height: 40vh; border-right: none; border-bottom: 1px solid var(--border); }
+  .municipal-editor { padding: 16px; }
 
   .admin-tab-content { padding: 16px 16px calc(16px + var(--bottom-nav-h) + env(safe-area-inset-bottom)); }
   .admin-panel-header { padding: 16px 16px 0; }

@@ -15,8 +15,9 @@ const FIREBASE_CONFIG = {
 };
 
 firebase.initializeApp(FIREBASE_CONFIG);
-const auth = firebase.auth();
-const db   = firebase.firestore();
+const auth    = firebase.auth();
+const db      = firebase.firestore();
+const storage = firebase.storage();
 
 const API_BASE = '';
 
@@ -43,12 +44,18 @@ const SECTION_COLORS = [
   '#14b8a6','#3b82f6','#8b5cf6','#ec4899',
 ];
 
-// Secciones fijas vinculadas a una carpeta de Dropbox (aia.arq@gmail.com).
-// A diferencia de las secciones de Reuniones, estas son solo dos, fijas,
-// y muestran un botón que abre la carpeta compartida en una pestaña nueva.
+// Secciones fijas del módulo Planos. La mayoría ('dropbox', default) solo
+// muestra un botón que abre una carpeta compartida de Dropbox en una
+// pestaña nueva. Las de type:'notes' son distintas: en vez de un link,
+// cada una muestra su propio mini-wiki (secciones/obras copiadas de
+// Reuniones) con notas de texto y archivos adjuntos por obra — puede haber
+// varias de estas, cada una independiente de las demás (ver planosPages
+// más abajo, filtrado por parentId = id de esta entrada).
 const DROPBOX_LINKS = [
-  { id: 'detalles-constructivos', name: 'Detalles Constructivos', icon: '📐' },
-  { id: 'proyectos-permiso',      name: 'Proyectos con Permiso',  icon: '📋' },
+  { id: 'detalles-constructivos',    name: 'Detalles Constructivos',    icon: '📐' },
+  { id: 'antecedentes-municipales',  name: 'Antecedentes Municipales',  icon: '🏛️', type: 'notes' },
+  { id: 'normativas',                name: 'Normativas',                icon: '📖', type: 'notes' },
+  { id: 'proyectos-permiso',         name: 'Proyectos con Permiso',     icon: '📋' },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2217,9 +2224,17 @@ function renderPlanosArea() {
   const entry     = DROPBOX_LINKS.find(e => e.id === planosState.currentId);
 
   if (!entry) {
+    container.className = 'dropbox-area';
     container.innerHTML = '<div class="empty-state"><p>Seleccioná un plano para ver su enlace.</p></div>';
     return;
   }
+
+  if (entry.type === 'notes') {
+    container.className = 'municipal-area';
+    renderPlanosNotesArea(entry);
+    return;
+  }
+  container.className = 'dropbox-area';
 
   const link = state.dropboxLinks[entry.id];
   const url  = link && link.url;
@@ -2244,6 +2259,310 @@ function renderPlanosArea() {
         <p>Todavía no se configuró el enlace de la carpeta de Dropbox.${isAdmin ? ' Configuralo en Administración → Dropbox.' : ' Pedile al administrador que lo configure.'}</p>
       </div>
     `;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PLANOS — ÍTEMS "NOTES" (mini-wiki con notas + archivos por obra)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Cubre cualquier entrada de DROPBOX_LINKS con type:'notes' (hoy:
+// "Antecedentes Municipales" y "Normativas" — puede haber más). Todas
+// comparten una única colección `planosPages`, distinguidas por
+// `parentId` (el id de la entrada), así que agregar una entrada nueva de
+// este tipo no pide tocar el esquema. Reusan las mismas secciones
+// (empresas) de Reuniones — no hace falta duplicarlas, ya tienen su
+// propio control de acceso — pero cada obra (página) tiene, para cada
+// entrada 'notes', su propio doc independiente en `planosPages` con notas
+// de texto y archivos adjuntos (Firebase Storage), separado del contenido
+// de la reunión y de las demás entradas 'notes'. "Sincronizar" crea, para
+// cada página de Reuniones que todavía no tenga su par acá, una entrada
+// vacía lista para cargar — es incremental: correrlo de nuevo no duplica
+// lo ya copiado.
+
+const planosNotesState = {
+  parentId: null,   // qué entrada de DROPBOX_LINKS está cargada (ver abajo)
+  loaded: false,
+  loading: false,
+  sections: [],     // secciones accesibles (mismas que Reuniones)
+  sourcePages: [],  // páginas de Reuniones, solo para poder sincronizar
+  items: [],         // docs de planosPages con parentId === este parentId
+  currentPageId: null,
+  notesTimer: null,
+};
+
+async function loadPlanosNotesData(entry) {
+  if (planosNotesState.loading) return;
+  planosNotesState.loading = true;
+  planosNotesState.parentId = entry.id;
+  DOM.planosArea.innerHTML = '<div class="empty-state"><p>Cargando...</p></div>';
+
+  try {
+    const [sectionsSnap, pagesSnap, notesSnap] = await Promise.all([
+      db.collection('sections').orderBy('createdAt').get(),
+      db.collection('pages').orderBy('order').get(),
+      db.collection('planosPages').where('parentId', '==', entry.id).get(),
+    ]);
+    const allSections = sectionsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    planosNotesState.sections = state.userData.role === 'admin'
+      ? allSections
+      : allSections.filter(s => Array.isArray(s.allowedUids) && s.allowedUids.includes(state.userData.uid));
+    planosNotesState.sourcePages = pagesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    planosNotesState.items       = notesSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+  } catch (err) {
+    console.error('loadPlanosNotesData error:', err);
+    toast(`Error al cargar ${entry.name}: ` + err.message, 'error');
+    planosNotesState.loading = false;
+    DOM.planosArea.innerHTML = `<div class="empty-state"><p>Error al cargar. ${escHtml(err.message)}</p></div>`;
+    return;
+  }
+
+  planosNotesState.loading = false;
+  planosNotesState.loaded = true;
+  planosNotesState.currentPageId = null;
+
+  // Primera vez que se usa esta entrada (todavía no hay ninguna obra
+  // copiada): arranca solo con lo que ya existe en Reuniones, para no
+  // partir de cero.
+  if (planosNotesState.items.length === 0 && planosNotesState.sourcePages.length > 0) {
+    await syncPlanosNotesPages(entry, true);
+  }
+
+  renderPlanosNotesArea(entry);
+}
+
+// Crea, para cada página de Reuniones que todavía no tenga su par en
+// `planosPages` para esta entrada (comparando por sourcePageId), un doc
+// nuevo vacío. Devuelve cuántos creó. Es seguro llamarla varias veces.
+async function syncPlanosNotesPages(entry, silent) {
+  const existingSourceIds = new Set(planosNotesState.items.map(p => p.sourcePageId).filter(Boolean));
+  const accessibleSectionIds = new Set(planosNotesState.sections.map(s => s.id));
+  const toCreate = planosNotesState.sourcePages.filter(p =>
+    !existingSourceIds.has(p.id) && accessibleSectionIds.has(p.sectionId)
+  );
+  if (!toCreate.length) {
+    if (!silent) toast('No hay obras nuevas para copiar.', 'info');
+    return 0;
+  }
+
+  try {
+    const batch = db.batch();
+    const newDocs = [];
+    toCreate.forEach(p => {
+      const ref = db.collection('planosPages').doc();
+      const data = {
+        parentId: entry.id,
+        sectionId: p.sectionId,
+        sourcePageId: p.id,
+        title: p.title || 'Sin título',
+        notes: '',
+        antecedentes: p.antecedentes || null,
+        files: [],
+        order: p.order || 0,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      };
+      batch.set(ref, data);
+      newDocs.push({ id: ref.id, ...data });
+    });
+    await batch.commit();
+    planosNotesState.items.push(...newDocs);
+    if (!silent) toast(`${toCreate.length} obra${toCreate.length === 1 ? '' : 's'} copiada${toCreate.length === 1 ? '' : 's'} de Reuniones.`, 'success');
+    return toCreate.length;
+  } catch (err) {
+    console.error('syncPlanosNotesPages error:', err);
+    toast('Error al sincronizar: ' + err.message, 'error');
+    return 0;
+  }
+}
+
+function renderPlanosNotesArea(entry) {
+  const container = DOM.planosArea;
+
+  // Si se cambió a otra entrada 'notes' (ej. de Antecedentes Municipales a
+  // Normativas), hay que recargar — son colecciones lógicas distintas.
+  if (!planosNotesState.loaded || planosNotesState.parentId !== entry.id) {
+    planosNotesState.loaded = false;
+    loadPlanosNotesData(entry);
+    return;
+  }
+
+  const groups = planosNotesState.sections.map(section => ({
+    section,
+    items: planosNotesState.items.filter(it => it.sectionId === section.id)
+      .sort((a, b) => (a.order || 0) - (b.order || 0) || (a.title || '').localeCompare(b.title || '', 'es')),
+  }));
+
+  if (!planosNotesState.currentPageId || !planosNotesState.items.some(it => it.id === planosNotesState.currentPageId)) {
+    planosNotesState.currentPageId = groups.find(g => g.items.length)?.items[0]?.id || null;
+  }
+
+  container.innerHTML = `
+    <div class="municipal-sidebar">
+      <div class="municipal-sidebar-header">
+        <span>${escHtml(entry.name)}</span>
+        <button class="btn-sm" id="municipal-sync-btn" title="Copiar obras nuevas de Reuniones">🔄</button>
+      </div>
+      <div class="municipal-sections-list">
+        ${groups.length === 0 ? '<div class="empty-state"><p>No hay secciones accesibles.</p></div>' : groups.map(g => `
+          <div class="municipal-section-group">
+            <div class="municipal-section-name" style="border-left-color:${g.section.color || '#1a1a1a'}">${escHtml(g.section.name)}</div>
+            ${g.items.length === 0
+              ? '<div class="municipal-section-empty">Sin obras copiadas todavía</div>'
+              : g.items.map(it => `
+                <div class="municipal-page-item${it.id === planosNotesState.currentPageId ? ' active' : ''}" data-id="${it.id}">
+                  ${escHtml(it.title || 'Sin título')}${(it.files || []).length ? ` <span class="municipal-file-count">📎${it.files.length}</span>` : ''}
+                </div>
+              `).join('')}
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    <div class="municipal-editor" id="municipal-editor"></div>
+  `;
+
+  $('municipal-sync-btn').addEventListener('click', async () => {
+    $('municipal-sync-btn').disabled = true;
+    await syncPlanosNotesPages(entry, false);
+    $('municipal-sync-btn').disabled = false;
+    renderPlanosNotesArea(entry);
+  });
+
+  container.querySelectorAll('.municipal-page-item').forEach(el => {
+    el.addEventListener('click', () => {
+      planosNotesState.currentPageId = el.dataset.id;
+      renderPlanosNotesArea(entry);
+    });
+  });
+
+  renderPlanosNotesEditor();
+}
+
+function renderPlanosNotesEditor() {
+  const editor = $('municipal-editor');
+  if (!editor) return;
+  const item = planosNotesState.items.find(it => it.id === planosNotesState.currentPageId);
+  const canEdit = state.userData.role !== 'viewer';
+
+  if (!item) {
+    editor.innerHTML = '<div class="empty-state"><p>Seleccioná una obra para ver sus antecedentes.</p></div>';
+    return;
+  }
+
+  editor.innerHTML = `
+    <div class="municipal-editor-title">${escHtml(item.title || 'Sin título')}</div>
+    <textarea id="municipal-notes" placeholder="Notas..." ${canEdit ? '' : 'disabled'}>${escHtml(item.notes || '')}</textarea>
+    <div class="municipal-files">
+      <div class="municipal-files-header">
+        <span>Archivos</span>
+        ${canEdit ? `
+          <label class="btn-sm municipal-upload-btn">
+            📎 Subir archivo${item.files && item.files.length ? 's' : ''}
+            <input type="file" id="municipal-file-input" multiple hidden />
+          </label>
+        ` : ''}
+      </div>
+      <div class="municipal-files-list">
+        ${(item.files || []).length === 0
+          ? '<p class="ant-empty-hint">Sin archivos todavía</p>'
+          : item.files.map((f, i) => `
+            <div class="municipal-file-row">
+              <a href="${escHtml(f.url)}" target="_blank" rel="noopener noreferrer">${escHtml(f.name)}</a>
+              <span class="municipal-file-size">${formatFileSize(f.size)}</span>
+              ${canEdit ? `<button type="button" class="municipal-file-remove" data-index="${i}" title="Eliminar">×</button>` : ''}
+            </div>
+          `).join('')}
+      </div>
+      <div id="municipal-upload-status"></div>
+    </div>
+  `;
+
+  if (!canEdit) return;
+
+  const notesEl = $('municipal-notes');
+  notesEl.addEventListener('input', () => {
+    clearTimeout(planosNotesState.notesTimer);
+    planosNotesState.notesTimer = setTimeout(() => savePlanosNotesText(item.id, notesEl.value), 1000);
+  });
+
+  const fileInput = $('municipal-file-input');
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files.length) uploadPlanosNotesFiles(item.id, Array.from(fileInput.files));
+    fileInput.value = '';
+  });
+
+  editor.querySelectorAll('.municipal-file-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const index = parseInt(btn.dataset.index, 10);
+      deletePlanosNotesFile(item.id, index);
+    });
+  });
+}
+
+function formatFileSize(bytes) {
+  if (!bytes && bytes !== 0) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+async function savePlanosNotesText(pageId, notes) {
+  const item = planosNotesState.items.find(it => it.id === pageId);
+  if (item) item.notes = notes;
+  try {
+    await db.collection('planosPages').doc(pageId).update({
+      notes, updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (err) {
+    console.error('savePlanosNotesText error:', err);
+    toast('Error al guardar las notas: ' + err.message, 'error');
+  }
+}
+
+async function uploadPlanosNotesFiles(pageId, files) {
+  const status = $('municipal-upload-status');
+  const item = planosNotesState.items.find(it => it.id === pageId);
+  if (!item) return;
+
+  for (const file of files) {
+    if (status) status.textContent = `Subiendo ${file.name}...`;
+    const path = `planos/${pageId}/${Date.now()}_${file.name}`;
+    try {
+      const ref = storage.ref(path);
+      await ref.put(file);
+      const url = await ref.getDownloadURL();
+      const meta = { name: file.name, path, url, size: file.size, uploadedAt: new Date().toISOString() };
+      await db.collection('planosPages').doc(pageId).update({
+        files: firebase.firestore.FieldValue.arrayUnion(meta),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      item.files = [...(item.files || []), meta];
+    } catch (err) {
+      console.error('uploadPlanosNotesFiles error:', err);
+      toast(`Error al subir ${file.name}: ` + err.message, 'error');
+    }
+  }
+  if (status) status.textContent = '';
+  renderPlanosNotesEditor();
+}
+
+async function deletePlanosNotesFile(pageId, index) {
+  const item = planosNotesState.items.find(it => it.id === pageId);
+  if (!item || !item.files || !item.files[index]) return;
+  const file = item.files[index];
+
+  try {
+    await storage.ref(file.path).delete().catch(() => {}); // si ya no está en Storage, igual se saca de la lista
+    await db.collection('planosPages').doc(pageId).update({
+      files: firebase.firestore.FieldValue.arrayRemove(file),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    item.files = item.files.filter((_, i) => i !== index);
+    renderPlanosNotesEditor();
+  } catch (err) {
+    console.error('deletePlanosNotesFile error:', err);
+    toast('Error al eliminar el archivo: ' + err.message, 'error');
   }
 }
 
@@ -2578,6 +2897,21 @@ function renderAdminDropbox(users) {
     const accessLabel  = allowedUsers.length === 0
       ? '<em style="color:var(--text-muted)">Sin acceso asignado</em>'
       : allowedUsers.map(u => `<span style="font-size:12px;background:var(--sidebar-bg);padding:2px 6px;border-radius:99px;margin:2px">${escHtml(u.name || u.email)}</span>`).join('');
+
+    if (entry.type === 'notes') {
+      return `
+        <div class="dropbox-admin-card" data-link-id="${entry.id}">
+          <div class="dropbox-admin-card-header">
+            <span class="dropbox-admin-card-title">${entry.icon} ${escHtml(entry.name)}</span>
+            <button class="btn-sm js-manage-dropbox-access" data-id="${entry.id}">👥 Accesos</button>
+          </div>
+          <p class="section-card-meta" style="margin:8px 0">Mini-wiki con notas y archivos por obra (copiadas de Reuniones) — no usa enlace de Dropbox.</p>
+          <div class="dropbox-admin-card-footer">
+            <span class="section-card-meta">Acceso: ${accessLabel}</span>
+          </div>
+        </div>
+      `;
+    }
 
     return `
       <div class="dropbox-admin-card" data-link-id="${entry.id}">

@@ -74,5 +74,16 @@ service cloud.firestore {
       allow read: if isActive();
       allow write: if isEditorOrAdmin();
     }
+
+    // ── Planos pages (Antecedentes Municipales, Normativas, y cualquier
+    // otro ítem 'notes' que se agregue en Planos) ──────────────────────────
+    // Notas y archivos por obra, copiados de `pages` pero independientes;
+    // parentId distingue a qué ítem de Planos pertenece cada doc.
+    // No es público (a diferencia de sections/pages): solo usuarios activos.
+    match /planosPages/{pageId} {
+      allow read: if isActive();
+      allow create, update: if isEditorOrAdmin();
+      allow delete: if isAdmin();
+    }
   }
 }

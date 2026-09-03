@@ -721,6 +721,10 @@ function initEditorToolbar() {
       DOM.editorContent.focus();
     });
   });
+  bindCustomSizeInput(DOM.fontSizePopover, px => {
+    applyFontSize(px);
+    DOM.editorContent.focus();
+  });
 
   document.addEventListener('click', e => {
     if (!DOM.textColorPopover.classList.contains('hidden') &&
@@ -778,6 +782,11 @@ function initEditorToolbar() {
       DOM.titleSizePopover.classList.add('hidden');
       scheduleAutosave();
     });
+  });
+  bindCustomSizeInput(DOM.titleSizePopover, px => {
+    DOM.pageTitleInput.dataset.size = px;
+    DOM.pageTitleInput.style.fontSize = `${px}px`;
+    scheduleAutosave();
   });
 
   // Listen for content changes. El "Encargado" y la "Fecha de entrega" de
@@ -844,6 +853,29 @@ function applyFontSize(px) {
     if (px) span.style.fontSize = px + 'px';
     while (el.firstChild) span.appendChild(el.firstChild);
     el.replaceWith(span);
+  });
+}
+
+// Fila "Otro (px)" al pie de un size-popover: además de las opciones fijas
+// (Pequeño/Normal/Grande...), deja escribir cualquier número de píxeles a
+// mano. onApply recibe el valor ya validado como string, p.ej. "37".
+function bindCustomSizeInput(popover, onApply) {
+  const input = popover.querySelector('.size-custom-input');
+  const btn = popover.querySelector('.size-custom-apply');
+  if (!input || !btn) return;
+
+  const apply = () => {
+    const px = parseInt(input.value, 10);
+    if (!px || px <= 0) return;
+    onApply(String(px));
+    input.value = '';
+    popover.classList.add('hidden');
+  };
+
+  btn.addEventListener('click', e => { e.preventDefault(); apply(); });
+  input.addEventListener('click', e => e.stopPropagation());
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); apply(); }
   });
 }
 

@@ -4,6 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AIA Wiki</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#080c14" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="AIA Wiki" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -125,6 +131,10 @@
                   <button type="button" class="size-option" data-size="28" style="font-size:28px">Grande</button>
                   <button type="button" class="size-option" data-size="34" style="font-size:34px">Muy grande</button>
                   <button type="button" class="size-option" data-size="42" style="font-size:42px">Enorme</button>
+                  <div class="size-custom-row">
+                    <input type="number" class="size-custom-input" min="8" max="200" placeholder="Otro (px)" />
+                    <button type="button" class="btn-sm size-custom-apply">Aplicar</button>
+                  </div>
                 </div>
               </span>
               <span id="save-indicator"></span>
@@ -195,11 +205,15 @@
               <span class="toolbar-size-wrap">
                 <button class="toolbar-btn" id="font-size-btn" type="button" title="Tamaño de letra">Aa</button>
                 <div id="font-size-popover" class="size-popover hidden">
-                  <button type="button" class="size-option" data-size="12" style="font-size:12px">Pequeño</button>
+                  <button type="button" class="size-option" data-size="6" style="font-size:6px">Pequeño</button>
                   <button type="button" class="size-option" data-size="" style="font-size:15px">Normal</button>
                   <button type="button" class="size-option" data-size="19" style="font-size:19px">Grande</button>
                   <button type="button" class="size-option" data-size="24" style="font-size:24px">Muy grande</button>
                   <button type="button" class="size-option" data-size="32" style="font-size:32px">Enorme</button>
+                  <div class="size-custom-row">
+                    <input type="number" class="size-custom-input" min="8" max="200" placeholder="Otro (px)" />
+                    <button type="button" class="btn-sm size-custom-apply">Aplicar</button>
+                  </div>
                 </div>
               </span>
               <span class="toolbar-sep"></span>
@@ -396,5 +410,10 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
   <script src="app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+    }
+  </script>
 </body>
 </html>

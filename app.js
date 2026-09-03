@@ -724,6 +724,10 @@ function initEditorToolbar() {
       DOM.editorContent.focus();
     });
   });
+  bindCustomSizeInput(DOM.fontSizePopover, px => {
+    applyFontSize(px);
+    DOM.editorContent.focus();
+  });
 
   document.addEventListener('click', e => {
     if (!DOM.textColorPopover.classList.contains('hidden') &&
@@ -781,6 +785,11 @@ function initEditorToolbar() {
       DOM.titleSizePopover.classList.add('hidden');
       scheduleAutosave();
     });
+  });
+  bindCustomSizeInput(DOM.titleSizePopover, px => {
+    DOM.pageTitleInput.dataset.size = px;
+    DOM.pageTitleInput.style.fontSize = `${px}px`;
+    scheduleAutosave();
   });
 
   // Listen for content changes. El "Encargado" y la "Fecha de entrega" de
@@ -847,6 +856,29 @@ function applyFontSize(px) {
     if (px) span.style.fontSize = px + 'px';
     while (el.firstChild) span.appendChild(el.firstChild);
     el.replaceWith(span);
+  });
+}
+
+// Fila "Otro (px)" al pie de un size-popover: además de las opciones fijas
+// (Pequeño/Normal/Grande...), deja escribir cualquier número de píxeles a
+// mano. onApply recibe el valor ya validado como string, p.ej. "37".
+function bindCustomSizeInput(popover, onApply) {
+  const input = popover.querySelector('.size-custom-input');
+  const btn = popover.querySelector('.size-custom-apply');
+  if (!input || !btn) return;
+
+  const apply = () => {
+    const px = parseInt(input.value, 10);
+    if (!px || px <= 0) return;
+    onApply(String(px));
+    input.value = '';
+    popover.classList.add('hidden');
+  };
+
+  btn.addEventListener('click', e => { e.preventDefault(); apply(); });
+  input.addEventListener('click', e => e.stopPropagation());
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); apply(); }
   });
 }
 
@@ -1109,6 +1141,9 @@ const ANT_SELECT_FIELDS = [
 ];
 
 const antSelectOpen = {};
+// Valor (string) que se está renombrando en el popover de cada campo, o null
+// si ninguno está en edición — un solo campo a la vez, igual que antSelectOpen.
+const antEditingValue = {};
 let antCanEdit = false;
 
 function normalizeAntecedentes(raw) {
@@ -1194,11 +1229,77 @@ async function removeOptionListValue(listKey, value) {
   if (listKey === 'encargados') renderEncargadosDatalist();
 }
 
-// Opciones visibles del desplegable: para comuna, la lista fija de base
-// más las agregadas a mano; para el resto, solo las agregadas a mano.
+// Renombra un valor en el catálogo compartido (p.ej. corregir un typo) y lo
+// actualiza también en la página abierta y en cualquier otra obra que ya lo
+// tuviera marcado — si solo se corrigiera el catálogo, esas obras quedarían
+// mostrando el nombre viejo, que ya no aparecería como opción para destildar.
+async function renameOptionListValue(field, oldValue, newValue) {
+  const listKey = field.listKey;
+
+  state.optionLists[listKey] = Array.from(new Set(
+    (state.optionLists[listKey] || []).map(v => (v === oldValue ? newValue : v))
+  )).sort((a, b) => a.localeCompare(b, 'es'));
+
+  const a = state.antecedentes;
+  if (field.multi) {
+    if ((a[field.key] || []).includes(oldValue)) {
+      a[field.key] = Array.from(new Set(a[field.key].map(v => (v === oldValue ? newValue : v))));
+    }
+  } else if (a[field.key] === oldValue) {
+    a[field.key] = newValue;
+  }
+
+  try {
+    await db.collection('config').doc('optionLists').set(
+      { [listKey]: state.optionLists[listKey] },
+      { merge: true }
+    );
+  } catch (err) {
+    console.error('renameOptionListValue error (catálogo):', err);
+    toast('Error al modificar la opción.', 'error');
+    return;
+  }
+
+  const affected = state.pages.filter(p => {
+    if (p.id === state.currentPageId) return false; // esta página se guarda aparte, con saveAntecedentesNow
+    const v = p.antecedentes?.[field.key];
+    return field.multi ? Array.isArray(v) && v.includes(oldValue) : v === oldValue;
+  });
+  if (!affected.length) return;
+
+  const batch = db.batch();
+  affected.forEach(p => {
+    const v = p.antecedentes[field.key];
+    const updated = field.multi
+      ? Array.from(new Set(v.map(x => (x === oldValue ? newValue : x))))
+      : newValue;
+    p.antecedentes = { ...p.antecedentes, [field.key]: updated };
+    batch.update(db.collection('pages').doc(p.id), { [`antecedentes.${field.key}`]: updated });
+  });
+  try {
+    await batch.commit();
+  } catch (err) {
+    console.error('renameOptionListValue error (otras obras):', err);
+    toast('Se modificó en la lista, pero no se pudo actualizar en todas las obras.', 'error');
+  }
+}
+
+// Opciones visibles del desplegable: para comuna, la lista fija de base más
+// las agregadas a mano; para el resto, las agregadas a mano. En los dos
+// casos se suman también los valores ya marcados en la obra abierta, aunque
+// no estén en el catálogo compartido — puede pasar con datos viejos (este
+// campo fue texto libre por un tiempo) migrados a lista sin pasar por
+// "Agregar". Si no se sumaran acá, ese nombre se seguiría viendo en el
+// resumen del campo pero sin ninguna fila en el desplegable para tildarlo,
+// editarlo o sacarlo: quedaría pegado ahí sin forma de tocarlo.
 function antFieldOptions(field) {
   const custom = state.optionLists[field.listKey] || [];
-  const all = field.key === 'comuna' ? new Set([...BASE_COMUNAS, ...custom]) : new Set(custom);
+  const selected = field.multi
+    ? (state.antecedentes[field.key] || [])
+    : (state.antecedentes[field.key] ? [state.antecedentes[field.key]] : []);
+  const all = field.key === 'comuna'
+    ? new Set([...BASE_COMUNAS, ...custom, ...selected])
+    : new Set([...custom, ...selected]);
   return Array.from(all).sort((a, b) => a.localeCompare(b, 'es'));
 }
 
@@ -1214,6 +1315,7 @@ function renderAntecedentesPanel(canEdit) {
 
   ANT_SELECT_FIELDS.forEach(f => {
     antSelectOpen[f.key] = false;
+    antEditingValue[f.key] = null;
     renderAntSelectField(f);
   });
 }
@@ -1230,12 +1332,23 @@ function renderAntSelectField(field) {
   const optionsHtml = options.length
     ? options.map(opt => {
         const checked = selected.includes(opt);
-        const removable = canEdit && !(field.key === 'comuna' && BASE_COMUNAS.includes(opt));
+        const editable = canEdit && !(field.key === 'comuna' && BASE_COMUNAS.includes(opt));
+
+        if (editable && antEditingValue[field.key] === opt) {
+          return `
+            <div class="ant-select-option ant-select-option-editing">
+              <input type="text" class="ant-select-rename-input" value="${escHtml(opt)}" maxlength="60" />
+              <button type="button" class="ant-select-rename-save" title="Guardar">✓</button>
+              <button type="button" class="ant-select-rename-cancel" title="Cancelar">✕</button>
+            </div>
+          `;
+        }
         return `
           <label class="ant-select-option">
             <input type="${field.multi ? 'checkbox' : 'radio'}" name="ant-select-${field.key}" value="${escHtml(opt)}" ${checked ? 'checked' : ''} ${canEdit ? '' : 'disabled'} />
             <span>${escHtml(opt)}</span>
-            ${removable ? `<button type="button" class="ant-select-remove" data-value="${escHtml(opt)}" title="Quitar de la lista">×</button>` : ''}
+            ${editable ? `<button type="button" class="ant-select-edit" data-value="${escHtml(opt)}" title="Modificar nombre">✎</button>` : ''}
+            ${editable ? `<button type="button" class="ant-select-remove" data-value="${escHtml(opt)}" title="Quitar de la lista">×</button>` : ''}
           </label>
         `;
       }).join('')
@@ -1291,6 +1404,47 @@ function renderAntSelectField(field) {
       renderAntSelectField(field);
     });
   });
+
+  container.querySelectorAll('.ant-select-edit').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      antEditingValue[field.key] = btn.dataset.value;
+      renderAntSelectField(field);
+    });
+  });
+
+  // Fila de edición: cambia el nombre en el catálogo compartido y, si otras
+  // obras ya lo tenían marcado, también en cada una de ellas — para que el
+  // arreglo de un typo no deje nombres viejos sueltos por ahí.
+  const renameRow = container.querySelector('.ant-select-option-editing');
+  if (renameRow) {
+    const oldValue = antEditingValue[field.key];
+    const renameInput = renameRow.querySelector('.ant-select-rename-input');
+    renameInput.focus();
+    renameInput.select();
+    renameInput.addEventListener('click', e => e.stopPropagation());
+
+    const confirmRename = async () => {
+      const newValue = renameInput.value.trim();
+      antEditingValue[field.key] = null;
+      if (newValue && newValue !== oldValue) {
+        await renameOptionListValue(field, oldValue, newValue);
+        saveAntecedentesNow();
+      }
+      renderAntSelectField(field);
+    };
+    const cancelRename = () => {
+      antEditingValue[field.key] = null;
+      renderAntSelectField(field);
+    };
+
+    renameRow.querySelector('.ant-select-rename-save').addEventListener('click', e => { e.stopPropagation(); confirmRename(); });
+    renameRow.querySelector('.ant-select-rename-cancel').addEventListener('click', e => { e.stopPropagation(); cancelRename(); });
+    renameInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); confirmRename(); }
+      if (e.key === 'Escape') { e.preventDefault(); cancelRename(); }
+    });
+  }
 
   const addInput = container.querySelector('.ant-select-add-input');
   const addBtn = container.querySelector('.ant-select-add-btn');

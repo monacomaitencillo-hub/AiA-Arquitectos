@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aia-wiki-v1';
+const CACHE_NAME = 'aia-wiki-v2';
 const APP_SHELL = [
   '/app.html',
   '/index.html',
@@ -29,19 +29,23 @@ self.addEventListener('activate', event => {
 // Solo cachea el "app shell" estático propio (mismo origen). Todo lo demás
 // (Firestore, Firebase Auth, Google Fonts, APIs) pasa directo a la red: es
 // contenido dinámico que no debe quedar atrapado en caché.
+//
+// Red primero, caché como respaldo solo sin conexión. La app cambia seguido
+// (se está iterando activamente); con "caché primero" un cambio recién
+// subido no se veía hasta la SEGUNDA vez que se abría la app — la primera
+// mostraba lo viejo (guardado) mientras actualizaba el caché en segundo
+// plano para la vez siguiente. Sin conexión, sigue funcionando con lo
+// último que haya quedado guardado.
 self.addEventListener('fetch', event => {
   const req = event.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
 
   event.respondWith(
-    caches.match(req).then(cached => {
-      const fetchPromise = fetch(req)
-        .then(res => {
-          if (res.ok) caches.open(CACHE_NAME).then(cache => cache.put(req, res.clone()));
-          return res;
-        })
-        .catch(() => cached);
-      return cached || fetchPromise;
-    })
+    fetch(req)
+      .then(res => {
+        if (res.ok) caches.open(CACHE_NAME).then(cache => cache.put(req, res.clone()));
+        return res;
+      })
+      .catch(() => caches.match(req))
   );
 });

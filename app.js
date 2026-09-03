@@ -46,15 +46,17 @@ const SECTION_COLORS = [
 
 // Secciones fijas del módulo Planos. La mayoría ('dropbox', default) solo
 // muestra un botón que abre una carpeta compartida de Dropbox en una
-// pestaña nueva. Las de type:'notes' son distintas: en vez de un link,
-// cada una muestra su propio mini-wiki (secciones/obras copiadas de
-// Reuniones) con notas de texto y archivos adjuntos por obra — puede haber
-// varias de estas, cada una independiente de las demás (ver planosPages
-// más abajo, filtrado por parentId = id de esta entrada).
+// pestaña nueva. Otros dos tipos, sin link:
+//  - 'notes': mini-wiki con las obras (secciones/páginas) copiadas de
+//    Reuniones, con notas de texto y archivos por obra (ver planosPages).
+//  - 'library': sin obras — solo grupos que arma el usuario a mano (ej.
+//    "OGUC", "Plan Regulador") para juntar PDFs sueltos (ver planosGroups).
+// Puede haber varias entradas de cada tipo, cada una independiente de las
+// demás (se distinguen por parentId = id de esta entrada).
 const DROPBOX_LINKS = [
   { id: 'detalles-constructivos',    name: 'Detalles Constructivos',    icon: '📐' },
   { id: 'antecedentes-municipales',  name: 'Antecedentes Municipales',  icon: '🏛️', type: 'notes' },
-  { id: 'normativas',                name: 'Normativas',                icon: '📖', type: 'notes' },
+  { id: 'normativas',                name: 'Normativas',                icon: '📖', type: 'library' },
   { id: 'proyectos-permiso',         name: 'Proyectos con Permiso',     icon: '📋' },
 ];
 
@@ -2234,6 +2236,11 @@ function renderPlanosArea() {
     renderPlanosNotesArea(entry);
     return;
   }
+  if (entry.type === 'library') {
+    container.className = 'library-area';
+    renderPlanosLibraryArea(entry);
+    return;
+  }
   container.className = 'dropbox-area';
 
   const link = state.dropboxLinks[entry.id];
@@ -2562,6 +2569,215 @@ async function deletePlanosNotesFile(pageId, index) {
     renderPlanosNotesEditor();
   } catch (err) {
     console.error('deletePlanosNotesFile error:', err);
+    toast('Error al eliminar el archivo: ' + err.message, 'error');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PLANOS — ÍTEMS "LIBRARY" (grupos armados a mano para juntar PDFs sueltos)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Cubre cualquier entrada de DROPBOX_LINKS con type:'library' (hoy:
+// "Normativas"). A diferencia de 'notes', acá no hay obras: el usuario
+// arma sus propios grupos (ej. "OGUC", "Plan Regulador Comunal") y sube
+// los PDFs que quiera adentro de cada uno. Todas comparten una única
+// colección `planosGroups`, distinguidas por `parentId`.
+
+const planosLibraryState = {
+  parentId: null,
+  loaded: false,
+  loading: false,
+  groups: [],
+};
+
+async function loadPlanosLibraryData(entry) {
+  if (planosLibraryState.loading) return;
+  planosLibraryState.loading = true;
+  planosLibraryState.parentId = entry.id;
+  DOM.planosArea.innerHTML = '<div class="empty-state"><p>Cargando...</p></div>';
+
+  try {
+    const snap = await db.collection('planosGroups').where('parentId', '==', entry.id).get();
+    planosLibraryState.groups = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (a.order || 0) - (b.order || 0) || (a.name || '').localeCompare(b.name || '', 'es'));
+  } catch (err) {
+    console.error('loadPlanosLibraryData error:', err);
+    toast(`Error al cargar ${entry.name}: ` + err.message, 'error');
+    planosLibraryState.loading = false;
+    DOM.planosArea.innerHTML = `<div class="empty-state"><p>Error al cargar. ${escHtml(err.message)}</p></div>`;
+    return;
+  }
+
+  planosLibraryState.loading = false;
+  planosLibraryState.loaded = true;
+  renderPlanosLibraryArea(entry);
+}
+
+function renderPlanosLibraryArea(entry) {
+  const container = DOM.planosArea;
+
+  if (!planosLibraryState.loaded || planosLibraryState.parentId !== entry.id) {
+    planosLibraryState.loaded = false;
+    loadPlanosLibraryData(entry);
+    return;
+  }
+
+  const canEdit = state.userData.role !== 'viewer';
+  const groups = planosLibraryState.groups;
+
+  container.innerHTML = `
+    <div class="library-header">
+      <span>${escHtml(entry.name)}</span>
+      ${canEdit ? '<button class="btn-sm primary" id="library-new-group-btn">+ Nuevo grupo</button>' : ''}
+    </div>
+    <div class="library-groups">
+      ${groups.length === 0
+        ? '<div class="empty-state"><p>Todavía no hay grupos. Creá uno para empezar a juntar PDFs.</p></div>'
+        : groups.map(g => `
+          <div class="library-group-card" data-id="${g.id}">
+            <div class="library-group-header">
+              <span class="library-group-name">${escHtml(g.name || 'Sin nombre')}</span>
+              ${canEdit ? `
+                <label class="btn-sm library-upload-btn">
+                  📎 Subir PDF
+                  <input type="file" class="library-file-input" data-id="${g.id}" accept="application/pdf" multiple hidden />
+                </label>
+                <button type="button" class="btn-sm library-group-delete" data-id="${g.id}" title="Eliminar grupo">🗑️</button>
+              ` : ''}
+            </div>
+            <div class="municipal-files-list">
+              ${(g.files || []).length === 0
+                ? '<p class="ant-empty-hint">Sin archivos todavía</p>'
+                : g.files.map((f, i) => `
+                  <div class="municipal-file-row">
+                    <a href="${escHtml(f.url)}" target="_blank" rel="noopener noreferrer">${escHtml(f.name)}</a>
+                    <span class="municipal-file-size">${formatFileSize(f.size)}</span>
+                    ${canEdit ? `<button type="button" class="library-file-remove" data-id="${g.id}" data-index="${i}" title="Eliminar">×</button>` : ''}
+                  </div>
+                `).join('')}
+            </div>
+            <div class="library-upload-status" data-id="${g.id}"></div>
+          </div>
+        `).join('')}
+    </div>
+  `;
+
+  if (!canEdit) return;
+
+  $('library-new-group-btn')?.addEventListener('click', () => createPlanosGroup(entry));
+
+  container.querySelectorAll('.library-file-input').forEach(input => {
+    input.addEventListener('change', () => {
+      if (input.files.length) uploadPlanosGroupFiles(input.dataset.id, Array.from(input.files));
+      input.value = '';
+    });
+  });
+
+  container.querySelectorAll('.library-file-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      deletePlanosGroupFile(btn.dataset.id, parseInt(btn.dataset.index, 10));
+    });
+  });
+
+  container.querySelectorAll('.library-group-delete').forEach(btn => {
+    btn.addEventListener('click', () => deletePlanosGroup(entry, btn.dataset.id));
+  });
+}
+
+async function createPlanosGroup(entry) {
+  const name = (prompt('Nombre del grupo (ej. "OGUC", "Plan Regulador Comunal"):') || '').trim();
+  if (!name) return;
+
+  try {
+    const ref = db.collection('planosGroups').doc();
+    const data = {
+      parentId: entry.id,
+      name,
+      files: [],
+      order: planosLibraryState.groups.length,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    };
+    await ref.set(data);
+    planosLibraryState.groups.push({ id: ref.id, ...data });
+    renderPlanosLibraryArea(entry);
+  } catch (err) {
+    console.error('createPlanosGroup error:', err);
+    toast('Error al crear el grupo: ' + err.message, 'error');
+  }
+}
+
+function deletePlanosGroup(entry, groupId) {
+  const group = planosLibraryState.groups.find(g => g.id === groupId);
+  if (!group) return;
+
+  openModal({
+    title: 'Eliminar grupo',
+    body: `<p>¿Eliminar el grupo <strong>${escHtml(group.name || 'Sin nombre')}</strong> y sus ${(group.files || []).length} archivo${(group.files || []).length === 1 ? '' : 's'}? Esta acción no se puede deshacer.</p>`,
+    footer: `
+      <button class="btn-sm" id="m-cancel-btn">Cancelar</button>
+      <button class="btn-sm danger" id="m-confirm-btn">Eliminar</button>
+    `,
+  });
+
+  $('m-cancel-btn').addEventListener('click', closeModal);
+  $('m-confirm-btn').addEventListener('click', async () => {
+    $('m-confirm-btn').disabled = true;
+    try {
+      await Promise.all((group.files || []).map(f => storage.ref(f.path).delete().catch(() => {})));
+      await db.collection('planosGroups').doc(groupId).delete();
+      planosLibraryState.groups = planosLibraryState.groups.filter(g => g.id !== groupId);
+      closeModal();
+      renderPlanosLibraryArea(entry);
+      toast('Grupo eliminado', 'success');
+    } catch (err) {
+      console.error('deletePlanosGroup error:', err);
+      toast('Error al eliminar el grupo: ' + err.message, 'error');
+      closeModal();
+    }
+  });
+}
+
+async function uploadPlanosGroupFiles(groupId, files) {
+  const status = document.querySelector(`.library-upload-status[data-id="${groupId}"]`);
+  const group = planosLibraryState.groups.find(g => g.id === groupId);
+  if (!group) return;
+
+  for (const file of files) {
+    if (status) status.textContent = `Subiendo ${file.name}...`;
+    const path = `planos/${groupId}/${Date.now()}_${file.name}`;
+    try {
+      const ref = storage.ref(path);
+      await ref.put(file);
+      const url = await ref.getDownloadURL();
+      const meta = { name: file.name, path, url, size: file.size, uploadedAt: new Date().toISOString() };
+      await db.collection('planosGroups').doc(groupId).update({
+        files: firebase.firestore.FieldValue.arrayUnion(meta),
+      });
+      group.files = [...(group.files || []), meta];
+    } catch (err) {
+      console.error('uploadPlanosGroupFiles error:', err);
+      toast(`Error al subir ${file.name}: ` + err.message, 'error');
+    }
+  }
+  const entry = DROPBOX_LINKS.find(e => e.id === planosLibraryState.parentId);
+  if (entry) renderPlanosLibraryArea(entry);
+}
+
+async function deletePlanosGroupFile(groupId, index) {
+  const group = planosLibraryState.groups.find(g => g.id === groupId);
+  if (!group || !group.files || !group.files[index]) return;
+  const file = group.files[index];
+
+  try {
+    await storage.ref(file.path).delete().catch(() => {});
+    await db.collection('planosGroups').doc(groupId).update({
+      files: firebase.firestore.FieldValue.arrayRemove(file),
+    });
+    group.files = group.files.filter((_, i) => i !== index);
+    const entry = DROPBOX_LINKS.find(e => e.id === planosLibraryState.parentId);
+    if (entry) renderPlanosLibraryArea(entry);
+  } catch (err) {
+    console.error('deletePlanosGroupFile error:', err);
     toast('Error al eliminar el archivo: ' + err.message, 'error');
   }
 }
@@ -2898,14 +3114,17 @@ function renderAdminDropbox(users) {
       ? '<em style="color:var(--text-muted)">Sin acceso asignado</em>'
       : allowedUsers.map(u => `<span style="font-size:12px;background:var(--sidebar-bg);padding:2px 6px;border-radius:99px;margin:2px">${escHtml(u.name || u.email)}</span>`).join('');
 
-    if (entry.type === 'notes') {
+    if (entry.type === 'notes' || entry.type === 'library') {
+      const desc = entry.type === 'notes'
+        ? 'Mini-wiki con notas y archivos por obra (copiadas de Reuniones) — no usa enlace de Dropbox.'
+        : 'Grupos armados a mano para juntar PDFs sueltos — no usa enlace de Dropbox.';
       return `
         <div class="dropbox-admin-card" data-link-id="${entry.id}">
           <div class="dropbox-admin-card-header">
             <span class="dropbox-admin-card-title">${entry.icon} ${escHtml(entry.name)}</span>
             <button class="btn-sm js-manage-dropbox-access" data-id="${entry.id}">👥 Accesos</button>
           </div>
-          <p class="section-card-meta" style="margin:8px 0">Mini-wiki con notas y archivos por obra (copiadas de Reuniones) — no usa enlace de Dropbox.</p>
+          <p class="section-card-meta" style="margin:8px 0">${desc}</p>
           <div class="dropbox-admin-card-footer">
             <span class="section-card-meta">Acceso: ${accessLabel}</span>
           </div>

@@ -12,10 +12,15 @@
   <meta name="apple-mobile-web-app-title" content="AIA Wiki" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,300;1,9..144,400;1,9..144,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    /* Sin el !important, el atributo hidden pierde contra cualquier sección
+       que fije su propio display (p.ej. #numeros usa display:grid) — una
+       regla de origen "autor" siempre le gana a la que trae el navegador
+       por defecto para [hidden], sin importar la especificidad. */
+    [hidden] { display: none !important; }
     :root {
       --gold:    #c9a76d;
       --gold-lt: #e8d4a8;
@@ -38,7 +43,7 @@
     .nav-logo { display: flex; align-items: center; gap: 12px; text-decoration: none; }
     .nav-logo-text { display: flex; flex-direction: column; gap: 6px; }
     .nav-logo-title {
-      font-family: 'Cormorant Garamond', serif; font-size: 13px;
+      font-family: 'Fraunces', serif; font-size: 13px;
       letter-spacing: .2em; text-transform: uppercase;
       color: rgba(255,255,255,.45); font-weight: 400;
     }
@@ -90,25 +95,41 @@
     }
     .hero-content {
       position: relative; z-index: 10;
-      padding: 0 48px 80px;
-      max-width: 620px;
+      padding: 0 48px 100px;
+      max-width: 640px;
+    }
+    /* Entrada suave y escalonada — la página ahora es solo esto, así que
+       vale la pena que se sienta menos estática al llegar. */
+    @keyframes heroRise {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .hero-label, .hero-title, .hero-desc, .hero-btns {
+      animation: heroRise .9s cubic-bezier(.16,.8,.34,1) both;
+    }
+    .hero-label { animation-delay: .05s; }
+    .hero-title { animation-delay: .15s; }
+    .hero-desc  { animation-delay: .32s; }
+    .hero-btns  { animation-delay: .46s; }
+    @media (prefers-reduced-motion: reduce) {
+      .hero-label, .hero-title, .hero-desc, .hero-btns { animation: none; }
     }
     .hero-label {
-      font-size: 11px; font-weight: 600; letter-spacing: .18em;
+      font-size: 12px; font-weight: 600; letter-spacing: .22em;
       text-transform: uppercase; color: var(--gold);
-      margin-bottom: 20px;
+      margin-bottom: 22px;
     }
     .hero-title {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: clamp(52px, 7vw, 88px);
-      font-weight: 300; line-height: 1.06;
-      letter-spacing: -.01em;
-      margin-bottom: 24px;
+      font-family: 'Fraunces', serif;
+      font-size: clamp(56px, 7.5vw, 100px);
+      font-weight: 400; line-height: 1.03;
+      letter-spacing: -.015em;
+      margin-bottom: 26px;
     }
-    .hero-title em { font-style: italic; color: var(--gold-lt); }
+    .hero-title em { font-style: italic; font-weight: 400; color: var(--gold-lt); }
     .hero-desc {
-      font-size: 15px; font-weight: 300; color: rgba(255,255,255,.65);
-      line-height: 1.7; margin-bottom: 40px; max-width: 420px;
+      font-size: 16.5px; font-weight: 300; color: rgba(255,255,255,.68);
+      line-height: 1.75; margin-bottom: 44px; max-width: 440px;
     }
     .hero-btns { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
     .btn-gold {
@@ -154,7 +175,7 @@
       margin-bottom: 16px;
     }
     .section-title {
-      font-family: 'Cormorant Garamond', serif;
+      font-family: 'Fraunces', serif;
       font-size: clamp(32px, 4vw, 52px); font-weight: 400;
       line-height: 1.15; margin-bottom: 60px; max-width: 560px;
     }
@@ -170,7 +191,7 @@
     }
     .service-card:hover { border-top-color: var(--gold); }
     .service-num {
-      font-family: 'Cormorant Garamond', serif;
+      font-family: 'Fraunces', serif;
       font-size: 42px; font-weight: 300; color: rgba(0,0,0,.08);
       line-height: 1; margin-bottom: 20px;
     }
@@ -188,7 +209,7 @@
     }
     .stat { text-align: center; }
     .stat-num {
-      font-family: 'Cormorant Garamond', serif;
+      font-family: 'Fraunces', serif;
       font-size: 64px; font-weight: 300; color: var(--gold);
       line-height: 1;
     }
@@ -204,7 +225,7 @@
       text-align: center;
     }
     .quote {
-      font-family: 'Cormorant Garamond', serif;
+      font-family: 'Fraunces', serif;
       font-size: clamp(22px, 3.5vw, 40px); font-weight: 300;
       font-style: italic; color: rgba(255,255,255,.85);
       max-width: 780px; margin: 0 auto 28px; line-height: 1.5;
@@ -281,7 +302,7 @@
     .company-block { margin-bottom: 60px; scroll-margin-top: 96px; }
     .company-block:last-child { margin-bottom: 0; }
     .company-title {
-      font-family: 'Cormorant Garamond', serif;
+      font-family: 'Fraunces', serif;
       font-size: 30px; font-weight: 500;
       padding-bottom: 14px; margin-bottom: 24px;
       border-bottom: 2px solid; display: flex; align-items: center; gap: 13px;
@@ -407,7 +428,6 @@
     </span>
   </a>
   <div class="nav-right">
-    <a href="#proyectos" class="nav-link">Proyectos</a>
     <a href="login.html" class="nav-cta">Ir al Portal</a>
   </div>
 </nav>
@@ -725,19 +745,16 @@
       Diseñamos edificios, viviendas y espacios urbanos con una visión que combina rigor técnico, identidad cultural y belleza duradera.
     </p>
     <div class="hero-btns">
-      <a href="#servicios" class="btn-gold">Ver proyectos</a>
-      <a href="login.html" class="btn-outline">→ Ir al Portal</a>
+      <a href="login.html" class="btn-gold">→ Ir al Portal</a>
     </div>
-  </div>
-
-  <div class="scroll-hint">
-    <div class="scroll-line"></div>
-    Scroll
   </div>
 </section>
 
 <!-- ── SERVICIOS ──────────────────────────────────────────────────────────── -->
-<section id="servicios">
+<!-- Ocultas por ahora (dejar solo el hero hasta tener fotos/proyectos reales
+     para completarlas) — el marcado queda tal cual para reactivarlas después,
+     solo hace falta sacar el atributo "hidden" de cada <section>. -->
+<section id="servicios" hidden>
   <p class="section-label">Lo que hacemos</p>
   <h2 class="section-title">Arquitectura con propósito y precisión</h2>
 
@@ -766,7 +783,7 @@
 </section>
 
 <!-- ── PROYECTOS (seguimiento público, sin login) ────────────────────────────── -->
-<section id="proyectos">
+<section id="proyectos" hidden>
   <p class="section-label">Seguimiento de obra</p>
   <h2 class="section-title">Estado de nuestros proyectos</h2>
   <p class="section-desc">
@@ -787,7 +804,7 @@
 </section>
 
 <!-- ── NÚMEROS ────────────────────────────────────────────────────────────── -->
-<section id="numeros">
+<section id="numeros" hidden>
   <div class="stat">
     <div class="stat-num">28+</div>
     <div class="stat-label">Años de trayectoria</div>
@@ -807,7 +824,7 @@
 </section>
 
 <!-- ── FILOSOFÍA ──────────────────────────────────────────────────────────── -->
-<section id="filosofia">
+<section id="filosofia" hidden>
   <div class="gold-rule"></div>
   <blockquote class="quote">
     "La arquitectura no es un espejo de la vida, sino una forma de vida en sí misma."
@@ -816,7 +833,7 @@
 </section>
 
 <!-- ── PORTAL CTA ─────────────────────────────────────────────────────────── -->
-<section id="portal">
+<section id="portal" hidden>
   <p class="section-label">Equipo interno</p>
   <h2 class="section-title" style="text-align:center">
     Accedé al portal de reuniones
@@ -1043,7 +1060,9 @@
     });
   });
 
-  loadProyectos();
+  // Sección "Proyectos" oculta por ahora (ver <section id="proyectos"> más
+  // arriba) — no hace falta traer los datos de Firestore hasta reactivarla.
+  // loadProyectos();
 })();
 </script>
 <script>

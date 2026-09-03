@@ -33,7 +33,7 @@ const state = {
   currentPageId: null,
   autosaveTimer: null,
   isDirty:     false,
-  antecedentes: { comuna: '', unidades: null, m2Total: null, encargados: [], revisorArquitectura: [], calculista: [] },
+  antecedentes: { comuna: '', unidades: null, m2Total: null, encargados: '', revisorArquitectura: '', calculista: '' },
 };
 
 // Predefined section colors
@@ -92,18 +92,9 @@ const DOM = {
   antComuna:         $('ant-comuna'),
   antUnidades:       $('ant-unidades'),
   antM2Total:        $('ant-m2total'),
-  antEncargadosChips:$('ant-encargados-chips'),
-  antEncargadoInput: $('ant-encargado-input'),
-  antEncargadoAddBtn:$('ant-encargado-add'),
-  antEncargadosDatalist: $('ant-encargados-datalist'),
-  antRevisorChips:   $('ant-revisor-chips'),
-  antRevisorInput:   $('ant-revisor-input'),
-  antRevisorAddBtn:  $('ant-revisor-add'),
-  antRevisorDatalist:$('ant-revisor-datalist'),
-  antCalculistaChips:   $('ant-calculista-chips'),
-  antCalculistaInput:   $('ant-calculista-input'),
-  antCalculistaAddBtn:  $('ant-calculista-add'),
-  antCalculistaDatalist:$('ant-calculista-datalist'),
+  antEncargados:     $('ant-encargados'),
+  antRevisor:        $('ant-revisor'),
+  antCalculista:     $('ant-calculista'),
   // Resumen
   resumenModule:         $('resumen-module'),
   resumenEmptyState:     $('resumen-empty-state'),
@@ -1085,22 +1076,14 @@ function openInsertDateModal() {
 // WIKI — ANTECEDENTES PANEL (ficha fija por página: comuna, encargados, m², unidades)
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Campos de "lista de nombres" de la ficha de antecedentes: cada uno guarda
-// varios nombres como chips, con autocompletado de nombres ya usados en
-// cualquier página (para reutilizarlos entre proyectos sin retipear).
-const ANT_LIST_FIELDS = [
-  { key: 'encargados',           chips: 'antEncargadosChips',   input: 'antEncargadoInput',    addBtn: 'antEncargadoAddBtn',    datalist: 'antEncargadosDatalist',   emptyHint: 'Sin encargados' },
-  { key: 'revisorArquitectura',  chips: 'antRevisorChips',      input: 'antRevisorInput',      addBtn: 'antRevisorAddBtn',      datalist: 'antRevisorDatalist',      emptyHint: 'Sin revisor asignado' },
-  { key: 'calculista',           chips: 'antCalculistaChips',   input: 'antCalculistaInput',   addBtn: 'antCalculistaAddBtn',   datalist: 'antCalculistaDatalist',   emptyHint: 'Sin calculista asignado' },
+// Campos de texto libre de la ficha de antecedentes: el usuario escribe
+// todos los nombres juntos en un mismo cuadro (ej. "Alex / Martin"), sin
+// botón de agregar ni chips — un campo de texto normal como comuna o m².
+const ANT_TEXT_FIELDS = [
+  { key: 'encargados',          dom: 'antEncargados' },
+  { key: 'revisorArquitectura', dom: 'antRevisor' },
+  { key: 'calculista',          dom: 'antCalculista' },
 ];
-
-// Los nombres cargados en cada campo se ven de a uno (chips) solo cuando el
-// usuario los despliega a propósito: por defecto la ficha muestra nomás un
-// contador ("N nombres"), para que la fila no crezca con la cantidad de
-// gente cargada — clave en el celular, donde cada chip ocupaba un renglón
-// propio. Se resetea a "cerrado" en cada carga de página (ver
-// renderAntecedentesPanel); agregar o quitar un nombre no lo abre solo.
-const antChipsExpanded = {};
 
 function normalizeAntecedentes(raw) {
   // m2Total: si la página venía del esquema viejo (lista de m² por unidad),
@@ -1114,8 +1097,10 @@ function normalizeAntecedentes(raw) {
     unidades: (raw?.unidades === 0 || raw?.unidades) ? Number(raw.unidades) : null,
     m2Total: (raw?.m2Total === 0 || raw?.m2Total) ? Number(raw.m2Total) : legacyM2Sum,
   };
-  ANT_LIST_FIELDS.forEach(f => {
-    out[f.key] = Array.isArray(raw?.[f.key]) ? raw[f.key].slice() : [];
+  ANT_TEXT_FIELDS.forEach(f => {
+    // Dato legado: estos campos se guardaban como array de chips. Se unen
+    // con " / " para no perder lo ya cargado al pasar al campo de texto.
+    out[f.key] = Array.isArray(raw?.[f.key]) ? raw[f.key].join(' / ') : (raw?.[f.key] || '');
   });
   return out;
 }
@@ -1138,92 +1123,10 @@ function renderAntecedentesPanel(canEdit) {
   DOM.antM2Total.value = a.m2Total ?? '';
   DOM.antM2Total.disabled = !canEdit;
 
-  ANT_LIST_FIELDS.forEach(f => {
-    DOM[f.input].disabled = !canEdit;
-    DOM[f.addBtn].style.display = canEdit ? '' : 'none';
-    DOM[f.input].style.display = canEdit ? '' : 'none';
-    antChipsExpanded[f.key] = false;
-    renderAntListChips(f, canEdit);
-    renderAntListDatalist(f);
+  ANT_TEXT_FIELDS.forEach(f => {
+    DOM[f.dom].value = a[f.key] || '';
+    DOM[f.dom].disabled = !canEdit;
   });
-}
-
-// Sugerencias del datalist: nombres únicos ya cargados en cualquier página
-// para este mismo campo, para no tener que retipear un nombre ya usado.
-function renderAntListDatalist(field) {
-  const names = new Set();
-  state.pages.forEach(p => (p.antecedentes?.[field.key] || []).forEach(n => names.add(n)));
-  state.antecedentes[field.key].forEach(n => names.add(n));
-
-  DOM[field.datalist].innerHTML = Array.from(names)
-    .sort((a, b) => a.localeCompare(b, 'es'))
-    .map(n => `<option value="${escHtml(n)}"></option>`)
-    .join('');
-}
-
-function renderAntListChips(field, canEdit) {
-  const list = state.antecedentes[field.key];
-  const container = DOM[field.chips];
-
-  if (!list.length) {
-    container.innerHTML = `<span class="ant-empty-hint">${field.emptyHint}</span>`;
-    return;
-  }
-
-  if (!antChipsExpanded[field.key]) {
-    container.innerHTML = `
-      <button type="button" class="ant-chips-toggle">
-        ${list.length} nombre${list.length === 1 ? '' : 's'} ▸
-      </button>
-    `;
-    container.querySelector('.ant-chips-toggle').addEventListener('click', () => {
-      antChipsExpanded[field.key] = true;
-      renderAntListChips(field, canEdit);
-    });
-    return;
-  }
-
-  container.innerHTML = `
-    <button type="button" class="ant-chips-toggle ant-chips-toggle-open">Ocultar ▾</button>
-    ${list.map((name, i) => `
-      <span class="ant-chip">
-        ${escHtml(name)}
-        ${canEdit ? `<button type="button" class="ant-chip-remove" data-index="${i}" title="Quitar">×</button>` : ''}
-      </span>
-    `).join('')}
-  `;
-
-  container.querySelector('.ant-chips-toggle-open').addEventListener('click', () => {
-    antChipsExpanded[field.key] = false;
-    renderAntListChips(field, canEdit);
-  });
-  container.querySelectorAll('.ant-chip-remove').forEach(btn => {
-    btn.addEventListener('click', () => {
-      state.antecedentes[field.key].splice(parseInt(btn.dataset.index, 10), 1);
-      renderAntListChips(field, true);
-      saveAntecedentesNow();
-    });
-  });
-}
-
-function addAntListItem(field) {
-  const name = DOM[field.input].value.trim();
-  if (!name) return;
-  state.antecedentes[field.key].push(name);
-  DOM[field.input].value = '';
-  renderAntListChips(field, true);
-  renderAntListDatalist(field);
-  saveAntecedentesNow();
-  DOM[field.input].focus();
-}
-
-// Guarda de inmediato (sin el debounce de 1.2s de scheduleAutosave) para
-// acciones puntuales de lista (agregar/quitar) donde el usuario espera que
-// quede guardado ya mismo, incluso si recarga la página al toque.
-function saveAntecedentesNow() {
-  clearTimeout(state.autosaveTimer);
-  setSaveIndicator('saving');
-  performAutosave();
 }
 
 function initAntecedentesPanel() {
@@ -1244,10 +1147,10 @@ function initAntecedentesPanel() {
     scheduleAutosave();
   });
 
-  ANT_LIST_FIELDS.forEach(f => {
-    DOM[f.addBtn].addEventListener('click', () => addAntListItem(f));
-    DOM[f.input].addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); addAntListItem(f); }
+  ANT_TEXT_FIELDS.forEach(f => {
+    DOM[f.dom].addEventListener('input', () => {
+      state.antecedentes[f.key] = DOM[f.dom].value;
+      scheduleAutosave();
     });
   });
 }

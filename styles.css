@@ -1042,9 +1042,41 @@ a:hover { text-decoration: underline; }
 
   #wiki-editor-area { width: 100%; }
 
+  /* Cualquier campo de texto (input, contenteditable) con letra menor a
+     16px hace que iOS Safari le haga zoom a toda la página apenas lo tocás
+     para escribir — molesto y difícil de deshacer a los tropezones. Se
+     sube a 16px en todo lo que se puede tocar para escribir en el celular. */
+  #editor-content,
+  .task-text,
+  .ant-field input[type="date"],
+  .ant-field input[type="number"],
+  .ant-field input[type="text"],
+  .ant-select-add-input,
+  .ant-select-rename-input,
+  .task-due-date { font-size: 16px; }
+
   #editor-content { padding: 16px; }
   #editor-header { padding: 12px 16px 8px; }
   #editor-toolbar { padding: 6px 12px; }
+
+  #antecedentes-panel { padding: 10px 16px 14px; }
+  #antecedentes-grid { gap: 10px; }
+
+  /* Zonas táctiles más grandes: a este tamaño de letra alcanza el dedo
+     de sobra en desktop, pero en el celular cuesta pegarle. */
+  .task-checkbox { width: 20px; height: 20px; }
+  .task-delete-btn { width: 34px; }
+  .task-priority-tag { padding: 5px 8px; font-size: 9.5px; }
+  .ant-select-edit,
+  .ant-select-remove,
+  .ant-select-rename-save,
+  .ant-select-rename-cancel { padding: 6px; }
+  .ant-select-option input[type="checkbox"],
+  .ant-select-option input[type="radio"] { width: 18px; height: 18px; }
+
+  /* La fecha de entrega necesita más ancho para no recortarse con la letra
+     más grande de arriba. */
+  .task-due-date { width: 108px; }
 
   #resumen-report-area { width: 100%; }
   #resumen-report { padding: 8px 16px 60px; }
@@ -1074,6 +1106,14 @@ a:hover { text-decoration: underline; }
   .data-table th:nth-child(3),
   .data-table td:nth-child(3) { display: none; }
 }
+
+/* Celulares angostos (la mayoría, en vertical): la ficha de Antecedentes
+   pasa a una sola columna — a 2 columnas cada campo queda tan angosto que
+   el desplegable y el nombre de comuna se pisan con el borde. */
+@media (max-width: 480px) {
+  #antecedentes-grid { grid-template-columns: 1fr; }
+}
+
 @media (min-width: 769px) {
   #wiki-sidebar { transform: none !important; }
   #module-sidebar { transform: none !important; }

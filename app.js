@@ -1238,11 +1238,22 @@ async function renameOptionListValue(field, oldValue, newValue) {
   }
 }
 
-// Opciones visibles del desplegable: para comuna, la lista fija de base
-// más las agregadas a mano; para el resto, solo las agregadas a mano.
+// Opciones visibles del desplegable: para comuna, la lista fija de base más
+// las agregadas a mano; para el resto, las agregadas a mano. En los dos
+// casos se suman también los valores ya marcados en la obra abierta, aunque
+// no estén en el catálogo compartido — puede pasar con datos viejos (este
+// campo fue texto libre por un tiempo) migrados a lista sin pasar por
+// "Agregar". Si no se sumaran acá, ese nombre se seguiría viendo en el
+// resumen del campo pero sin ninguna fila en el desplegable para tildarlo,
+// editarlo o sacarlo: quedaría pegado ahí sin forma de tocarlo.
 function antFieldOptions(field) {
   const custom = state.optionLists[field.listKey] || [];
-  const all = field.key === 'comuna' ? new Set([...BASE_COMUNAS, ...custom]) : new Set(custom);
+  const selected = field.multi
+    ? (state.antecedentes[field.key] || [])
+    : (state.antecedentes[field.key] ? [state.antecedentes[field.key]] : []);
+  const all = field.key === 'comuna'
+    ? new Set([...BASE_COMUNAS, ...custom, ...selected])
+    : new Set([...custom, ...selected]);
   return Array.from(all).sort((a, b) => a.localeCompare(b, 'es'));
 }
 

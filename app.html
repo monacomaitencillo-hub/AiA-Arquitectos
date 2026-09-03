@@ -273,7 +273,10 @@
                 <select id="resumen-filter-encargado" class="hidden"></select>
               </div>
               <div class="resumen-toolbar-actions">
-                <button class="btn-sm" id="resumen-email-btn">✉️ Enviar por correo</button>
+                <input type="email" id="resumen-email-to" placeholder="Para: destinatario@..." list="resumen-email-datalist" autocomplete="off" />
+                <datalist id="resumen-email-datalist"></datalist>
+                <button class="btn-sm" id="resumen-gmail-btn">📧 Gmail</button>
+                <button class="btn-sm" id="resumen-email-btn">✉️ Otro correo</button>
                 <button class="btn-sm primary" id="resumen-print-btn">🖨️ Imprimir</button>
               </div>
             </div>

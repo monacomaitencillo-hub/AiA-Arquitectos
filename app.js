@@ -34,7 +34,7 @@ const state = {
   autosaveTimer: null,
   isDirty:     false,
   antecedentes: { comuna: '', unidades: null, m2Total: null, encargados: [], revisorArquitectura: [], calculista: [] },
-  optionLists: { comunas: [], revisores: [], calculistas: [], encargados: [] },
+  optionLists: { comunas: [], revisores: [], calculistas: [], encargados: [], emails: [] },
 };
 
 // Predefined section colors
@@ -107,6 +107,9 @@ const DOM = {
   resumenFilterMode:     $('resumen-filter-mode'),
   resumenFilterEncargado:$('resumen-filter-encargado'),
   resumenPrintBtn:       $('resumen-print-btn'),
+  resumenEmailTo:        $('resumen-email-to'),
+  resumenEmailDatalist:  $('resumen-email-datalist'),
+  resumenGmailBtn:       $('resumen-gmail-btn'),
   resumenEmailBtn:       $('resumen-email-btn'),
   // Dropbox links (Detalles Constructivos / Proyectos con Permiso)
   planosModule:  $('planos-module'),
@@ -1182,6 +1185,7 @@ async function loadOptionLists() {
       revisores:   Array.isArray(d.revisores)   ? d.revisores   : [],
       calculistas: Array.isArray(d.calculistas) ? d.calculistas : [],
       encargados:  Array.isArray(d.encargados)  ? d.encargados  : [],
+      emails:      Array.isArray(d.emails)      ? d.emails      : [],
     };
   } catch (err) {
     console.error('loadOptionLists error:', err);
@@ -1189,6 +1193,7 @@ async function loadOptionLists() {
   // Si ya hay una obra abierta, refresca las opciones visibles con la lista recién cargada.
   if (state.currentPageId) ANT_SELECT_FIELDS.forEach(f => renderAntSelectField(f));
   renderEncargadosDatalist();
+  renderResumenEmailDatalist();
 }
 
 // Sugerencias del campo "Encargado" de cada tarea (☑ Tarea): la misma
@@ -1213,6 +1218,7 @@ async function addOptionListValue(listKey, value) {
     toast('Error al guardar la nueva opción.', 'error');
   }
   if (listKey === 'encargados') renderEncargadosDatalist();
+  if (listKey === 'emails') renderResumenEmailDatalist();
 }
 
 async function removeOptionListValue(listKey, value) {
@@ -1965,7 +1971,17 @@ async function loadResumen() {
   }
 
   renderResumenFilterEncargado();
+  renderResumenEmailDatalist();
   recomputeResumen();
+}
+
+// Sugerencias del campo "Para:" de envío por correo: direcciones ya
+// usadas antes desde este resumen, compartidas entre todos los que usan
+// la app (misma lista que state.optionLists, ver loadOptionLists).
+function renderResumenEmailDatalist() {
+  DOM.resumenEmailDatalist.innerHTML = (state.optionLists.emails || [])
+    .map(addr => `<option value="${escHtml(addr)}"></option>`)
+    .join('');
 }
 
 // Repuebla el <select> de nombres del filtro "Por encargado" con la lista
@@ -2066,11 +2082,10 @@ DOM.resumenPrintBtn.addEventListener('click', () => {
   window.print();
 });
 
-// "Enviar por correo": abre el cliente de mail del usuario con el resumen
-// actual como texto plano en el cuerpo (mailto no permite HTML ni adjuntar
-// archivos). No envía nada por sí solo — el usuario completa el
-// destinatario y aprieta enviar desde su propio programa de correo.
-DOM.resumenEmailBtn.addEventListener('click', () => {
+// Arma asunto + cuerpo (texto plano, recortado — ni mailto ni el compose
+// de Gmail por URL soportan HTML o adjuntos) a partir del resumen actual.
+// Devuelve null si no hay nada para mandar.
+function buildResumenEmailPayload() {
   const isEncargadoMode = resumenState.mode === 'encargado';
   const subject = isEncargadoMode
     ? `Resumen de obras — ${resumenState.encargado}`
@@ -2079,14 +2094,45 @@ DOM.resumenEmailBtn.addEventListener('click', () => {
   let body = (DOM.resumenReport.innerText || DOM.resumenReport.textContent || '').trim();
   if (!body) {
     toast('No hay contenido en el resumen para enviar.', 'error');
-    return;
+    return null;
   }
-  const LIMIT = 1500; // los clientes de mail truncan o rechazan mailto: muy largos
+  const LIMIT = 1500; // los clientes de mail truncan o rechazan links muy largos
   if (body.length > LIMIT) {
     body = body.slice(0, LIMIT) + '\n\n(resumen recortado — usá "Imprimir" para verlo completo)';
   }
+  return { subject, body };
+}
 
-  const mailto = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+// Guarda el correo usado en la lista compartida (state.optionLists.emails)
+// para que la próxima vez aparezca sugerido en el campo "Para:".
+function rememberResumenEmail(addr) {
+  if (addr && !state.optionLists.emails.includes(addr)) {
+    addOptionListValue('emails', addr);
+  }
+}
+
+DOM.resumenGmailBtn.addEventListener('click', () => {
+  const payload = buildResumenEmailPayload();
+  if (!payload) return;
+  const to = DOM.resumenEmailTo.value.trim();
+  rememberResumenEmail(to);
+
+  const params = new URLSearchParams({ view: 'cm', fs: '1', su: payload.subject, body: payload.body });
+  if (to) params.set('to', to);
+  window.open(`https://mail.google.com/mail/?${params.toString()}`, '_blank');
+});
+
+// "Otro correo": abre el cliente de mail configurado por defecto en el
+// dispositivo (mailto:) para quien no usa Gmail. No envía nada por sí
+// solo — el usuario completa lo que falte y aprieta enviar desde su
+// propio programa de correo.
+DOM.resumenEmailBtn.addEventListener('click', () => {
+  const payload = buildResumenEmailPayload();
+  if (!payload) return;
+  const to = DOM.resumenEmailTo.value.trim();
+  rememberResumenEmail(to);
+
+  const mailto = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(payload.subject)}&body=${encodeURIComponent(payload.body)}`;
   window.location.href = mailto;
 });
 

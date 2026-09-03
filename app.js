@@ -2463,12 +2463,7 @@ function renderPlanosNotesEditor() {
     <div class="municipal-files">
       <div class="municipal-files-header">
         <span>Archivos</span>
-        ${canEdit ? `
-          <label class="btn-sm municipal-upload-btn">
-            📎 Subir archivo${item.files && item.files.length ? 's' : ''}
-            <input type="file" id="municipal-file-input" multiple hidden />
-          </label>
-        ` : ''}
+        ${canEdit ? '<button type="button" class="btn-sm municipal-upload-btn" id="municipal-add-link-btn">🔗 Agregar enlace de Dropbox</button>' : ''}
       </div>
       <div class="municipal-files-list">
         ${(item.files || []).length === 0
@@ -2482,7 +2477,6 @@ function renderPlanosNotesEditor() {
             </div>
           `).join('')}
       </div>
-      <div id="municipal-upload-status"></div>
     </div>
   `;
 
@@ -2496,10 +2490,16 @@ function renderPlanosNotesEditor() {
     planosNotesState.notesTimer = setTimeout(() => savePlanosNotesText(item.id, notesEl.value), 1000);
   });
 
-  const fileInput = $('municipal-file-input');
-  fileInput.addEventListener('change', () => {
-    if (fileInput.files.length) uploadPlanosNotesFiles(item.id, Array.from(fileInput.files));
-    fileInput.value = '';
+  $('municipal-add-link-btn')?.addEventListener('click', () => {
+    openAddDropboxLinkModal(async ({ name, url }) => {
+      const meta = { name, url, addedAt: new Date().toISOString() };
+      await db.collection('planosPages').doc(item.id).update({
+        files: firebase.firestore.FieldValue.arrayUnion(meta),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      item.files = [...(item.files || []), meta];
+      renderPlanosNotesEditor();
+    });
   });
 
   editor.querySelectorAll('.municipal-file-remove').forEach(btn => {
@@ -2517,17 +2517,69 @@ function formatFileSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-// Sube un archivo a Storage reportando progreso (0-100) a medida que va,
-// en vez de solo saber al final si terminó — para que en archivos grandes
-// o conexiones lentas se vea que efectivamente está avanzando.
-function uploadFileWithProgress(path, file, onProgress) {
-  return new Promise((resolve, reject) => {
-    const task = storage.ref(path).put(file);
-    task.on('state_changed',
-      snap => onProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)),
-      reject,
-      () => task.snapshot.ref.getDownloadURL().then(resolve).catch(reject)
-    );
+// Los archivos no se suben a Storage (subida propia resultó poco
+// confiable / muy lenta para el uso real): se vinculan a un archivo que
+// el usuario ya subió a Dropbox. Esto convierte el link que copia y pega
+// (con o sin "?dl=0"/"?dl=1") al que sirve el archivo directo desde
+// dl.dropboxusercontent.com — necesario para que la vista previa
+// embebida (iframe) muestre el PDF en vez de la página de Dropbox, que
+// bloquea ser embebida en otro sitio.
+function normalizeDropboxUrl(rawUrl) {
+  try {
+    const u = new URL(rawUrl.trim());
+    if (/(^|\.)dropbox\.com$/.test(u.hostname)) {
+      u.hostname = 'dl.dropboxusercontent.com';
+      u.searchParams.delete('dl');
+      u.searchParams.delete('raw');
+    }
+    return u.toString();
+  } catch {
+    return rawUrl.trim();
+  }
+}
+
+// Modal chico para agregar un archivo por nombre + link de Dropbox, en
+// vez de subirlo. `onAdd({name, url})` hace el guardado real (queda a
+// cargo de quien llama, porque cambia según si es una obra o un grupo).
+function openAddDropboxLinkModal(onAdd) {
+  openModal({
+    title: 'Agregar enlace de Dropbox',
+    body: `
+      <div class="form-group">
+        <label>Nombre del archivo</label>
+        <input id="m-link-name" type="text" placeholder="Ej: OGUC-Noviembre-2024.pdf" maxlength="120" />
+      </div>
+      <div class="form-group">
+        <label>Enlace de Dropbox</label>
+        <input id="m-link-url" type="text" placeholder="https://www.dropbox.com/s/..." />
+      </div>
+      <div id="m-link-error" class="form-error" style="display:none"></div>
+    `,
+    footer: `
+      <button class="btn-sm" id="m-cancel-btn">Cancelar</button>
+      <button class="btn-sm primary" id="m-confirm-btn">Agregar</button>
+    `,
+  });
+
+  $('m-cancel-btn').addEventListener('click', closeModal);
+  $('m-confirm-btn').addEventListener('click', async () => {
+    const name = $('m-link-name').value.trim();
+    const rawUrl = $('m-link-url').value.trim();
+    const errEl = $('m-link-error');
+    if (!name || !rawUrl) {
+      errEl.textContent = 'Completá el nombre y el enlace.';
+      errEl.style.display = 'block';
+      return;
+    }
+    $('m-confirm-btn').disabled = true;
+    try {
+      await onAdd({ name, url: normalizeDropboxUrl(rawUrl) });
+      closeModal();
+    } catch (err) {
+      errEl.textContent = 'Error: ' + err.message;
+      errEl.style.display = 'block';
+      $('m-confirm-btn').disabled = false;
+    }
   });
 }
 
@@ -2568,48 +2620,15 @@ async function savePlanosNotesText(pageId, notes) {
   }
 }
 
-async function uploadPlanosNotesFiles(pageId, files) {
-  const status = $('municipal-upload-status');
-  const item = planosNotesState.items.find(it => it.id === pageId);
-  if (!item) return;
-
-  const progress = {};
-  const renderStatus = () => {
-    if (status) status.innerHTML = Object.entries(progress).map(([name, pct]) => `<div>${escHtml(name)}: ${pct}%</div>`).join('');
-  };
-
-  // En paralelo: con varios PDFs a la vez, subirlos uno por uno (como
-  // antes) tardaba la suma de todos; así tardan lo que tarda el más lento.
-  await Promise.all(files.map(async file => {
-    progress[file.name] = 0;
-    renderStatus();
-    const path = `planos/${pageId}/${Date.now()}_${file.name}`;
-    try {
-      const url = await uploadFileWithProgress(path, file, pct => { progress[file.name] = pct; renderStatus(); });
-      const meta = { name: file.name, path, url, size: file.size, uploadedAt: new Date().toISOString() };
-      await db.collection('planosPages').doc(pageId).update({
-        files: firebase.firestore.FieldValue.arrayUnion(meta),
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      });
-      item.files = [...(item.files || []), meta];
-    } catch (err) {
-      console.error('uploadPlanosNotesFiles error:', err);
-      toast(`Error al subir ${file.name}: ` + err.message, 'error');
-    } finally {
-      delete progress[file.name];
-      renderStatus();
-    }
-  }));
-  renderPlanosNotesEditor();
-}
-
 async function deletePlanosNotesFile(pageId, index) {
   const item = planosNotesState.items.find(it => it.id === pageId);
   if (!item || !item.files || !item.files[index]) return;
   const file = item.files[index];
 
   try {
-    await storage.ref(file.path).delete().catch(() => {}); // si ya no está en Storage, igual se saca de la lista
+    // Archivos viejos subidos a Storage (antes de pasar a enlaces de
+    // Dropbox) tienen path; los de enlace no, no hay nada que borrar ahí.
+    if (file.path) await storage.ref(file.path).delete().catch(() => {});
     await db.collection('planosPages').doc(pageId).update({
       files: firebase.firestore.FieldValue.arrayRemove(file),
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -2687,10 +2706,7 @@ function renderPlanosLibraryArea(entry) {
             <div class="library-group-header">
               <span class="library-group-name">${escHtml(g.name || 'Sin nombre')}</span>
               ${canEdit ? `
-                <label class="btn-sm library-upload-btn">
-                  📎 Subir PDF
-                  <input type="file" class="library-file-input" data-id="${g.id}" accept="application/pdf" multiple hidden />
-                </label>
+                <button type="button" class="btn-sm library-upload-btn" data-id="${g.id}">🔗 Agregar enlace</button>
                 <button type="button" class="btn-sm library-group-delete" data-id="${g.id}" title="Eliminar grupo">🗑️</button>
               ` : ''}
             </div>
@@ -2706,7 +2722,6 @@ function renderPlanosLibraryArea(entry) {
                   </div>
                 `).join('')}
             </div>
-            <div class="library-upload-status" data-id="${g.id}"></div>
           </div>
         `).join('')}
     </div>
@@ -2718,10 +2733,19 @@ function renderPlanosLibraryArea(entry) {
 
   $('library-new-group-btn')?.addEventListener('click', () => createPlanosGroup(entry));
 
-  container.querySelectorAll('.library-file-input').forEach(input => {
-    input.addEventListener('change', () => {
-      if (input.files.length) uploadPlanosGroupFiles(input.dataset.id, Array.from(input.files));
-      input.value = '';
+  container.querySelectorAll('.library-upload-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const groupId = btn.dataset.id;
+      const group = planosLibraryState.groups.find(g => g.id === groupId);
+      if (!group) return;
+      openAddDropboxLinkModal(async ({ name, url }) => {
+        const meta = { name, url, addedAt: new Date().toISOString() };
+        await db.collection('planosGroups').doc(groupId).update({
+          files: firebase.firestore.FieldValue.arrayUnion(meta),
+        });
+        group.files = [...(group.files || []), meta];
+        renderPlanosLibraryArea(entry);
+      });
     });
   });
 
@@ -2775,7 +2799,7 @@ function deletePlanosGroup(entry, groupId) {
   $('m-confirm-btn').addEventListener('click', async () => {
     $('m-confirm-btn').disabled = true;
     try {
-      await Promise.all((group.files || []).map(f => storage.ref(f.path).delete().catch(() => {})));
+      await Promise.all((group.files || []).filter(f => f.path).map(f => storage.ref(f.path).delete().catch(() => {})));
       await db.collection('planosGroups').doc(groupId).delete();
       planosLibraryState.groups = planosLibraryState.groups.filter(g => g.id !== groupId);
       closeModal();
@@ -2789,48 +2813,15 @@ function deletePlanosGroup(entry, groupId) {
   });
 }
 
-async function uploadPlanosGroupFiles(groupId, files) {
-  const status = document.querySelector(`.library-upload-status[data-id="${groupId}"]`);
-  const group = planosLibraryState.groups.find(g => g.id === groupId);
-  if (!group) return;
-
-  const progress = {};
-  const renderStatus = () => {
-    if (status) status.innerHTML = Object.entries(progress).map(([name, pct]) => `<div>${escHtml(name)}: ${pct}%</div>`).join('');
-  };
-
-  // En paralelo: con varios PDFs a la vez, subirlos uno por uno (como
-  // antes) tardaba la suma de todos; así tardan lo que tarda el más lento.
-  await Promise.all(files.map(async file => {
-    progress[file.name] = 0;
-    renderStatus();
-    const path = `planos/${groupId}/${Date.now()}_${file.name}`;
-    try {
-      const url = await uploadFileWithProgress(path, file, pct => { progress[file.name] = pct; renderStatus(); });
-      const meta = { name: file.name, path, url, size: file.size, uploadedAt: new Date().toISOString() };
-      await db.collection('planosGroups').doc(groupId).update({
-        files: firebase.firestore.FieldValue.arrayUnion(meta),
-      });
-      group.files = [...(group.files || []), meta];
-    } catch (err) {
-      console.error('uploadPlanosGroupFiles error:', err);
-      toast(`Error al subir ${file.name}: ` + err.message, 'error');
-    } finally {
-      delete progress[file.name];
-      renderStatus();
-    }
-  }));
-  const entry = DROPBOX_LINKS.find(e => e.id === planosLibraryState.parentId);
-  if (entry) renderPlanosLibraryArea(entry);
-}
-
 async function deletePlanosGroupFile(groupId, index) {
   const group = planosLibraryState.groups.find(g => g.id === groupId);
   if (!group || !group.files || !group.files[index]) return;
   const file = group.files[index];
 
   try {
-    await storage.ref(file.path).delete().catch(() => {});
+    // Archivos viejos subidos a Storage (antes de pasar a enlaces de
+    // Dropbox) tienen path; los de enlace no, no hay nada que borrar ahí.
+    if (file.path) await storage.ref(file.path).delete().catch(() => {});
     await db.collection('planosGroups').doc(groupId).update({
       files: firebase.firestore.FieldValue.arrayRemove(file),
     });

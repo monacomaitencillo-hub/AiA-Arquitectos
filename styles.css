@@ -50,6 +50,11 @@ button { cursor: pointer; border: none; background: none; font: inherit; }
 input, select, textarea { font: inherit; }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
+/* Sin esto, un <input type="date"> vacío ignora ancho/fondo propios en
+   Chrome Android y se dibuja con su propio recuadro nativo (con el color
+   del tema del teléfono) mucho más ancho de lo pedido — rompe cualquier
+   fila donde comparte espacio con otra cosa, como la de una tarea. */
+input[type="date"] { -webkit-appearance: none; appearance: none; }
 
 /* ── Utilities ─────────────────────────────────────────────────────────────── */
 .hidden { display: none !important; }
@@ -567,7 +572,10 @@ a:hover { text-decoration: underline; }
    borra), así que alcanza con sacar este display:none para que vuelvan. */
 .task-encargado,
 .task-col-resize[data-col="encargado"] { display: none; }
-.task-due-date { width: var(--task-due-date-w); padding: 6px 2px; color: var(--text-muted); }
+.task-due-date {
+  width: var(--task-due-date-w); min-width: 0; padding: 6px 2px; color: var(--text-muted);
+  -webkit-appearance: none; appearance: none;
+}
 .task-encargado:focus, .task-due-date:focus { background: var(--accent-light); color: var(--text); }
 .task-encargado:disabled, .task-due-date:disabled { opacity: .8; }
 

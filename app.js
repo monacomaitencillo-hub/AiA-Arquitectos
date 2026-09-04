@@ -54,7 +54,7 @@ const SECTION_COLORS = [
 // Puede haber varias entradas de cada tipo, cada una independiente de las
 // demás (se distinguen por parentId = id de esta entrada).
 const DROPBOX_LINKS = [
-  { id: 'detalles-constructivos',    name: 'Detalles Constructivos',    icon: '📐' },
+  { id: 'detalles-constructivos',    name: 'Detalles Constructivos',    icon: '📐', type: 'library' },
   { id: 'antecedentes-municipales',  name: 'Antecedentes Municipales',  icon: '🏛️', type: 'notes' },
   { id: 'normativas',                name: 'Normativas',                icon: '📖', type: 'library' },
   { id: 'proyectos-permiso',         name: 'Proyectos con Permiso',     icon: '📋' },
@@ -2527,12 +2527,20 @@ function renderPlanosNotesEditor() {
             <div class="municipal-file-row">
               <a class="municipal-file-name" href="${escHtml(dropboxRawLinkUrl(f.url))}" target="_blank" rel="noopener noreferrer">${escHtml(f.name)}</a>
               <span class="municipal-file-size">${formatFileSize(f.size)}</span>
+              <button type="button" class="municipal-file-share" data-index="${i}" title="Enviar por correo o WhatsApp">📤</button>
               ${canEdit ? `<button type="button" class="municipal-file-remove" data-index="${i}" title="Eliminar">×</button>` : ''}
             </div>
           `).join('')}
       </div>
     </div>
   `;
+
+  editor.querySelectorAll('.municipal-file-share').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const f = item.files[parseInt(btn.dataset.index, 10)];
+      if (f) openShareFileModal(f.name, f.url);
+    });
+  });
 
   if (!canEdit) return;
 
@@ -2594,6 +2602,33 @@ function dropboxRawLinkUrl(rawUrl) {
   } catch {
     return rawUrl.trim();
   }
+}
+
+// Modal chico con dos botones para mandar el link de un archivo por
+// correo (mailto:) o WhatsApp (wa.me, sin número — el usuario elige el
+// chat/contacto adentro de WhatsApp). No manda nada por sí solo: abre el
+// programa de correo o WhatsApp con el mensaje ya armado.
+function openShareFileModal(name, url) {
+  openModal({
+    title: 'Enviar archivo',
+    body: `<p style="font-size:13px;color:var(--text-muted)">${escHtml(name)}</p>`,
+    footer: `
+      <button class="btn-sm" id="m-cancel-btn">Cancelar</button>
+      <button class="btn-sm" id="m-share-whatsapp-btn">💬 WhatsApp</button>
+      <button class="btn-sm primary" id="m-share-email-btn">✉️ Correo</button>
+    `,
+  });
+
+  $('m-cancel-btn').addEventListener('click', closeModal);
+  $('m-share-email-btn').addEventListener('click', () => {
+    const mailto = `mailto:?subject=${encodeURIComponent(name)}&body=${encodeURIComponent(url)}`;
+    window.location.href = mailto;
+    closeModal();
+  });
+  $('m-share-whatsapp-btn').addEventListener('click', () => {
+    window.open(`https://wa.me/?text=${encodeURIComponent(`${name}: ${url}`)}`, '_blank');
+    closeModal();
+  });
 }
 
 // Modal chico para agregar un archivo por nombre + link de Dropbox, en
@@ -2756,6 +2791,7 @@ function renderPlanosLibraryArea(entry) {
                   <div class="municipal-file-row">
                     <a class="municipal-file-name" href="${escHtml(dropboxRawLinkUrl(f.url))}" target="_blank" rel="noopener noreferrer">${escHtml(f.name)}</a>
                     <span class="municipal-file-size">${formatFileSize(f.size)}</span>
+                    <button type="button" class="municipal-file-share" data-id="${g.id}" data-index="${i}" title="Enviar por correo o WhatsApp">📤</button>
                     ${canEdit ? `<button type="button" class="library-file-remove" data-id="${g.id}" data-index="${i}" title="Eliminar">×</button>` : ''}
                   </div>
                 `).join('')}
@@ -2764,6 +2800,14 @@ function renderPlanosLibraryArea(entry) {
         `).join('')}
     </div>
   `;
+
+  container.querySelectorAll('.municipal-file-share').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const group = planosLibraryState.groups.find(g => g.id === btn.dataset.id);
+      const f = group?.files[parseInt(btn.dataset.index, 10)];
+      if (f) openShareFileModal(f.name, f.url);
+    });
+  });
 
   if (!canEdit) return;
 

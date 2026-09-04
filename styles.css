@@ -816,6 +816,11 @@ input[type="date"] { -webkit-appearance: none; appearance: none; }
   padding: 2px 4px; border-radius: 50%;
 }
 .municipal-file-remove:hover { opacity: 1; background: rgba(var(--accent-rgb),.15); color: var(--accent); }
+.municipal-file-share {
+  flex-shrink: 0; opacity: .7; font-size: 13px; line-height: 1;
+  padding: 2px 4px; border-radius: 50%;
+}
+.municipal-file-share:hover { opacity: 1; background: rgba(var(--accent-rgb),.15); }
 
 /* Normativas (y cualquier otro ítem 'library') — grupos armados a mano
    para juntar PDFs sueltos, sin obras/secciones de por medio. */

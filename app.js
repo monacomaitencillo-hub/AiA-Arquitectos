@@ -2525,8 +2525,7 @@ function renderPlanosNotesEditor() {
           ? '<p class="ant-empty-hint">Sin archivos todavía</p>'
           : item.files.map((f, i) => `
             <div class="municipal-file-row">
-              <button type="button" class="municipal-file-name" data-url="${escHtml(f.url)}" data-name="${escHtml(f.name)}">${escHtml(f.name)}</button>
-              <a class="municipal-file-open" href="${escHtml(f.url)}" target="_blank" rel="noopener noreferrer" title="Abrir en pestaña nueva">↗</a>
+              <a class="municipal-file-name" href="${escHtml(f.url)}" target="_blank" rel="noopener noreferrer">${escHtml(f.name)}</a>
               <span class="municipal-file-size">${formatFileSize(f.size)}</span>
               ${canEdit ? `<button type="button" class="municipal-file-remove" data-index="${i}" title="Eliminar">×</button>` : ''}
             </div>
@@ -2534,8 +2533,6 @@ function renderPlanosNotesEditor() {
       </div>
     </div>
   `;
-
-  bindFileRowPreviews(editor);
 
   if (!canEdit) return;
 
@@ -2574,30 +2571,13 @@ function formatFileSize(bytes) {
 
 // Los archivos no se suben a Storage (subida propia resultó poco
 // confiable / muy lenta para el uso real): se vinculan a un archivo que
-// el usuario ya subió a Dropbox. Se guarda el link tal cual lo pega
-// (la propia página de Dropbox, que ya sabemos que abre bien en pestaña
-// nueva) y solo se transforma al vuelo para la vista previa embebida —
-// ver dropboxRawUrl más abajo.
-
-// Convierte un link de Dropbox al dominio de contenido directo
-// (dl.dropboxusercontent.com, con dl=1) — a diferencia de www.dropbox.com,
-// esa es la URL que sirve el archivo posta sin la página/app de Dropbox
-// alrededor: sin eso, en el celular Dropbox muestra un cartel para abrir
-// la app en vez del PDF. Ojo: hay que dejar "dl=1" puesto (no sacarlo del
-// todo) — los links nuevos tipo /scl/fi/...?rlkey=... dan 404 en ese
-// dominio si no se especifica dl, aunque el resto del link sea correcto.
-function dropboxRawUrl(rawUrl) {
-  try {
-    const u = new URL(rawUrl.trim());
-    if (/(^|\.)dropbox\.com$/i.test(u.hostname)) {
-      u.hostname = 'dl.dropboxusercontent.com';
-      u.searchParams.set('dl', '1');
-    }
-    return u.toString();
-  } catch {
-    return rawUrl.trim();
-  }
-}
+// el usuario ya subió a Dropbox. Se guarda el link tal cual lo pega y se
+// abre tal cual en pestaña nueva — se intentó mostrarlo embebido con un
+// iframe (probando distintas variantes de URL "directa" de Dropbox) pero
+// da 404 o 403 según el archivo, porque esos links dependen de la sesión
+// del usuario en dropbox.com y no hay forma confiable de adivinar una URL
+// que los esquive. Nada de eso: el link que Dropbox te da para compartir
+// ya funciona perfecto abierto directo, así que es lo único que se usa.
 
 // Modal chico para agregar un archivo por nombre + link de Dropbox, en
 // vez de subirlo. `onAdd({name, url})` hace el guardado real (queda a
@@ -2646,35 +2626,6 @@ function openAddDropboxLinkModal(onAdd) {
       errEl.style.display = 'block';
       $('m-confirm-btn').disabled = false;
     }
-  });
-}
-
-// Alterna una vista previa embebida (iframe) del PDF justo debajo de su
-// fila, para poder leerlo ahí mismo sin salir de la página. Solo deja una
-// abierta a la vez dentro de la misma lista.
-function toggleInlinePdfPreview(rowEl, url, name) {
-  const next = rowEl.nextElementSibling;
-  if (next && next.classList.contains('municipal-file-preview')) {
-    next.remove();
-    return;
-  }
-  rowEl.parentElement.querySelectorAll('.municipal-file-preview').forEach(el => el.remove());
-  const preview = document.createElement('div');
-  preview.className = 'municipal-file-preview';
-  preview.innerHTML = `
-    <iframe src="${escHtml(dropboxRawUrl(url))}" title="${escHtml(name)}"></iframe>
-    <div class="municipal-file-preview-fallback">
-      ¿No se ve el PDF? <a href="${escHtml(url)}" target="_blank" rel="noopener noreferrer">Abrilo en Dropbox ↗</a>
-    </div>
-  `;
-  rowEl.after(preview);
-}
-
-function bindFileRowPreviews(container) {
-  container.querySelectorAll('.municipal-file-name').forEach(btn => {
-    btn.addEventListener('click', () => {
-      toggleInlinePdfPreview(btn.closest('.municipal-file-row'), btn.dataset.url, btn.dataset.name);
-    });
   });
 }
 
@@ -2786,8 +2737,7 @@ function renderPlanosLibraryArea(entry) {
                 ? '<p class="ant-empty-hint">Sin archivos todavía</p>'
                 : g.files.map((f, i) => `
                   <div class="municipal-file-row">
-                    <button type="button" class="municipal-file-name" data-url="${escHtml(f.url)}" data-name="${escHtml(f.name)}">${escHtml(f.name)}</button>
-                    <a class="municipal-file-open" href="${escHtml(f.url)}" target="_blank" rel="noopener noreferrer" title="Abrir en pestaña nueva">↗</a>
+                    <a class="municipal-file-name" href="${escHtml(f.url)}" target="_blank" rel="noopener noreferrer">${escHtml(f.name)}</a>
                     <span class="municipal-file-size">${formatFileSize(f.size)}</span>
                     ${canEdit ? `<button type="button" class="library-file-remove" data-id="${g.id}" data-index="${i}" title="Eliminar">×</button>` : ''}
                   </div>
@@ -2797,8 +2747,6 @@ function renderPlanosLibraryArea(entry) {
         `).join('')}
     </div>
   `;
-
-  bindFileRowPreviews(container);
 
   if (!canEdit) return;
 

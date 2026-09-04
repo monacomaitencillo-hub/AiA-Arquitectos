@@ -2525,7 +2525,7 @@ function renderPlanosNotesEditor() {
           ? '<p class="ant-empty-hint">Sin archivos todavía</p>'
           : item.files.map((f, i) => `
             <div class="municipal-file-row">
-              <a class="municipal-file-name" href="${escHtml(dropboxDirectUrl(f.url))}" target="_blank" rel="noopener noreferrer">${escHtml(f.name)}</a>
+              <a class="municipal-file-name" href="${escHtml(f.url)}" target="_blank" rel="noopener noreferrer">${escHtml(f.name)}</a>
               <span class="municipal-file-size">${formatFileSize(f.size)}</span>
               ${canEdit ? `<button type="button" class="municipal-file-remove" data-index="${i}" title="Eliminar">×</button>` : ''}
             </div>
@@ -2571,33 +2571,13 @@ function formatFileSize(bytes) {
 
 // Los archivos no se suben a Storage (subida propia resultó poco
 // confiable / muy lenta para el uso real): se vinculan a un archivo que
-// el usuario ya subió a Dropbox. Se guarda el link tal cual lo pega — se
-// intentó mostrarlo embebido con un iframe (probando variantes de URL
-// "directa" en OTRO dominio, dl.dropboxusercontent.com) pero da 404 o 403
-// según el archivo, porque esos links dependen de la sesión del usuario en
-// dropbox.com y no hay forma confiable de adivinar una URL en otro
-// dominio que los esquive.
-//
-// Lo único que queda por probar, y es lo que se usa para "abrir": el
-// parámetro oficial de Dropbox "dl=1" en el MISMO dominio (sin cambiarlo),
-// documentado para pedir el archivo directo en vez de la página con la
-// interfaz de Dropbox alrededor. Ojo: eso normalmente hace que el
-// navegador/teléfono lo DESCARGUE en vez de mostrarlo — no hay forma de
-// pedir "mostralo directo, pero sin descargar" sin la interfaz propia de
-// Dropbox. Si el archivo descargado se abre solo con el visor de PDF del
-// teléfono, es un resultado aceptable; si en cambio queda solo como
-// descarga sin abrirse, no hay margen para mejorarlo más desde acá.
-function dropboxDirectUrl(rawUrl) {
-  try {
-    const u = new URL(rawUrl.trim());
-    if (/(^|\.)dropbox\.com$/i.test(u.hostname)) {
-      u.searchParams.set('dl', '1');
-    }
-    return u.toString();
-  } catch {
-    return rawUrl.trim();
-  }
-}
+// el usuario ya subió a Dropbox. Se guarda y se abre el link TAL CUAL lo
+// pega el usuario — el que Dropbox te da para compartir, que ya muestra
+// el PDF directo en su propia página. Se probaron dos variantes para
+// evitar esa página (?raw=1 y ?dl=1, con y sin cambiar de dominio a
+// dl.dropboxusercontent.com) y todas resultaron peor: 404, 403, o
+// directamente forzaban la descarga del archivo en vez de mostrarlo. El
+// link sin tocar es, de las opciones probadas, la única confiable.
 
 // Modal chico para agregar un archivo por nombre + link de Dropbox, en
 // vez de subirlo. `onAdd({name, url})` hace el guardado real (queda a
@@ -2757,7 +2737,7 @@ function renderPlanosLibraryArea(entry) {
                 ? '<p class="ant-empty-hint">Sin archivos todavía</p>'
                 : g.files.map((f, i) => `
                   <div class="municipal-file-row">
-                    <a class="municipal-file-name" href="${escHtml(dropboxDirectUrl(f.url))}" target="_blank" rel="noopener noreferrer">${escHtml(f.name)}</a>
+                    <a class="municipal-file-name" href="${escHtml(f.url)}" target="_blank" rel="noopener noreferrer">${escHtml(f.name)}</a>
                     <span class="municipal-file-size">${formatFileSize(f.size)}</span>
                     ${canEdit ? `<button type="button" class="library-file-remove" data-id="${g.id}" data-index="${i}" title="Eliminar">×</button>` : ''}
                   </div>

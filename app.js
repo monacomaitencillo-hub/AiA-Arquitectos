@@ -2525,7 +2525,7 @@ function renderPlanosNotesEditor() {
           ? '<p class="ant-empty-hint">Sin archivos todavía</p>'
           : item.files.map((f, i) => `
             <div class="municipal-file-row">
-              <a class="municipal-file-name" href="${escHtml(f.url)}" target="_blank" rel="noopener noreferrer">${escHtml(f.name)}</a>
+              <a class="municipal-file-name" href="${escHtml(dropboxRawLinkUrl(f.url))}" target="_blank" rel="noopener noreferrer">${escHtml(f.name)}</a>
               <span class="municipal-file-size">${formatFileSize(f.size)}</span>
               ${canEdit ? `<button type="button" class="municipal-file-remove" data-index="${i}" title="Eliminar">×</button>` : ''}
             </div>
@@ -2571,13 +2571,30 @@ function formatFileSize(bytes) {
 
 // Los archivos no se suben a Storage (subida propia resultó poco
 // confiable / muy lenta para el uso real): se vinculan a un archivo que
-// el usuario ya subió a Dropbox. Se guarda y se abre el link TAL CUAL lo
-// pega el usuario — el que Dropbox te da para compartir, que ya muestra
-// el PDF directo en su propia página. Se probaron dos variantes para
-// evitar esa página (?raw=1 y ?dl=1, con y sin cambiar de dominio a
-// dl.dropboxusercontent.com) y todas resultaron peor: 404, 403, o
-// directamente forzaban la descarga del archivo en vez de mostrarlo. El
-// link sin tocar es, de las opciones probadas, la única confiable.
+// el usuario ya subió a Dropbox.
+//
+// La página que Dropbox muestra para un link de archivo trae, además del
+// PDF, su propia interfaz alrededor (carpeta contenedora, barra de
+// Dropbox, etc.) — no hay forma de sacar eso sin pedir el contenido
+// directo. Ya se probaron sin éxito: cambiar a dl.dropboxusercontent.com
+// (404 o 403 según el link) y "?dl=1" en el mismo dominio (fuerza la
+// descarga en vez de mostrarlo). Lo que queda por probar es "?raw=1" en
+// el propio dropbox.com — a diferencia de dl=1, es el modo que Dropbox
+// documenta para servir el contenido posta sin forzar descarga; antes
+// solo se probó adentro de un iframe (que Dropbox bloquea aparte, por
+// X-Frame-Options), nunca como link normal de "abrir en pestaña nueva".
+function dropboxRawLinkUrl(rawUrl) {
+  try {
+    const u = new URL(rawUrl.trim());
+    if (/(^|\.)dropbox\.com$/i.test(u.hostname)) {
+      u.searchParams.delete('dl');
+      u.searchParams.set('raw', '1');
+    }
+    return u.toString();
+  } catch {
+    return rawUrl.trim();
+  }
+}
 
 // Modal chico para agregar un archivo por nombre + link de Dropbox, en
 // vez de subirlo. `onAdd({name, url})` hace el guardado real (queda a
@@ -2737,7 +2754,7 @@ function renderPlanosLibraryArea(entry) {
                 ? '<p class="ant-empty-hint">Sin archivos todavía</p>'
                 : g.files.map((f, i) => `
                   <div class="municipal-file-row">
-                    <a class="municipal-file-name" href="${escHtml(f.url)}" target="_blank" rel="noopener noreferrer">${escHtml(f.name)}</a>
+                    <a class="municipal-file-name" href="${escHtml(dropboxRawLinkUrl(f.url))}" target="_blank" rel="noopener noreferrer">${escHtml(f.name)}</a>
                     <span class="municipal-file-size">${formatFileSize(f.size)}</span>
                     ${canEdit ? `<button type="button" class="library-file-remove" data-id="${g.id}" data-index="${i}" title="Eliminar">×</button>` : ''}
                   </div>

@@ -2519,18 +2519,23 @@ function formatFileSize(bytes) {
 
 // Los archivos no se suben a Storage (subida propia resultó poco
 // confiable / muy lenta para el uso real): se vinculan a un archivo que
-// el usuario ya subió a Dropbox. Esto convierte el link que copia y pega
-// (con o sin "?dl=0"/"?dl=1") al que sirve el archivo directo desde
-// dl.dropboxusercontent.com — necesario para que la vista previa
-// embebida (iframe) muestre el PDF en vez de la página de Dropbox, que
-// bloquea ser embebida en otro sitio.
-function normalizeDropboxUrl(rawUrl) {
+// el usuario ya subió a Dropbox. Se guarda el link tal cual lo pega
+// (la propia página de Dropbox, que ya sabemos que abre bien en pestaña
+// nueva) y solo se transforma al vuelo para la vista previa embebida —
+// ver dropboxRawUrl más abajo.
+
+// Convierte un link de Dropbox al modo "raw" (?raw=1, sacando cualquier
+// "dl=0"/"dl=1"), que sirve el archivo directo sin forzar la descarga —
+// así el navegador lo puede mostrar adentro de un iframe. Cambiar el
+// dominio a dl.dropboxusercontent.com (como se hacía antes) rompe los
+// links nuevos tipo /scl/fi/... (dan 404): hay que quedarse en
+// dropbox.com y usar el parámetro, no el subdominio.
+function dropboxRawUrl(rawUrl) {
   try {
     const u = new URL(rawUrl.trim());
-    if (/(^|\.)dropbox\.com$/.test(u.hostname)) {
-      u.hostname = 'dl.dropboxusercontent.com';
+    if (/(^|\.)dropbox\.com$/i.test(u.hostname)) {
       u.searchParams.delete('dl');
-      u.searchParams.delete('raw');
+      u.searchParams.set('raw', '1');
     }
     return u.toString();
   } catch {
@@ -2578,7 +2583,7 @@ function openAddDropboxLinkModal(onAdd) {
     }
     $('m-confirm-btn').disabled = true;
     try {
-      await onAdd({ name, url: normalizeDropboxUrl(rawUrl) });
+      await onAdd({ name, url: rawUrl });
       closeModal();
     } catch (err) {
       errEl.textContent = 'Error: ' + err.message;
@@ -2600,7 +2605,12 @@ function toggleInlinePdfPreview(rowEl, url, name) {
   rowEl.parentElement.querySelectorAll('.municipal-file-preview').forEach(el => el.remove());
   const preview = document.createElement('div');
   preview.className = 'municipal-file-preview';
-  preview.innerHTML = `<iframe src="${escHtml(url)}" title="${escHtml(name)}"></iframe>`;
+  preview.innerHTML = `
+    <iframe src="${escHtml(dropboxRawUrl(url))}" title="${escHtml(name)}"></iframe>
+    <div class="municipal-file-preview-fallback">
+      ¿No se ve el PDF? <a href="${escHtml(url)}" target="_blank" rel="noopener noreferrer">Abrilo en Dropbox ↗</a>
+    </div>
+  `;
   rowEl.after(preview);
 }
 

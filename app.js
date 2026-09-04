@@ -2579,18 +2579,19 @@ function formatFileSize(bytes) {
 // nueva) y solo se transforma al vuelo para la vista previa embebida —
 // ver dropboxRawUrl más abajo.
 
-// Convierte un link de Dropbox al modo "raw" (?raw=1, sacando cualquier
-// "dl=0"/"dl=1"), que sirve el archivo directo sin forzar la descarga —
-// así el navegador lo puede mostrar adentro de un iframe. Cambiar el
-// dominio a dl.dropboxusercontent.com (como se hacía antes) rompe los
-// links nuevos tipo /scl/fi/... (dan 404): hay que quedarse en
-// dropbox.com y usar el parámetro, no el subdominio.
+// Convierte un link de Dropbox al dominio de contenido directo
+// (dl.dropboxusercontent.com, con dl=1) — a diferencia de www.dropbox.com,
+// esa es la URL que sirve el archivo posta sin la página/app de Dropbox
+// alrededor: sin eso, en el celular Dropbox muestra un cartel para abrir
+// la app en vez del PDF. Ojo: hay que dejar "dl=1" puesto (no sacarlo del
+// todo) — los links nuevos tipo /scl/fi/...?rlkey=... dan 404 en ese
+// dominio si no se especifica dl, aunque el resto del link sea correcto.
 function dropboxRawUrl(rawUrl) {
   try {
     const u = new URL(rawUrl.trim());
     if (/(^|\.)dropbox\.com$/i.test(u.hostname)) {
-      u.searchParams.delete('dl');
-      u.searchParams.set('raw', '1');
+      u.hostname = 'dl.dropboxusercontent.com';
+      u.searchParams.set('dl', '1');
     }
     return u.toString();
   } catch {

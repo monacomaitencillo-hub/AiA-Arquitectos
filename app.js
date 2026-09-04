@@ -2091,6 +2091,61 @@ DOM.resumenPrintBtn.addEventListener('click', () => {
   window.print();
 });
 
+// Convierte el HTML de una entrada (párrafos sueltos + tareas ☑) a texto
+// plano prolijo — mailto: y el compose de Gmail no soportan HTML, así que
+// en vez de aplanar el DOM tal cual (que pierde toda la estructura y deja
+// todo pegado en una sola bolsa de texto), se arma línea por línea:
+// cada tarea con su viñeta y prioridad entre corchetes, aparte del resto.
+function entryHtmlToPlainText(html) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  const lines = [];
+  tmp.childNodes.forEach(node => {
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    if (node.classList.contains('task-item')) {
+      const text = node.querySelector('.task-text')?.textContent.trim();
+      if (!text) return;
+      const priority = (node.dataset.priority || '').toUpperCase();
+      const due = node.querySelector('.task-due-date')?.value;
+      let line = `  • ${text}`;
+      if (priority) line += ` [${priority}]`;
+      if (due) line += ` (vence ${due})`;
+      lines.push(line);
+    } else {
+      const text = node.textContent.replace(/\s+/g, ' ').trim();
+      if (text) lines.push(`  ${text}`);
+    }
+  });
+  return lines.join('\n');
+}
+
+// Arma el cuerpo del correo con la misma estructura que se ve en
+// pantalla (empresa → obra → tareas), en vez de solo volcar el texto
+// plano del HTML renderizado — eso perdía toda separación entre
+// secciones y entradas.
+function buildResumenPlainText() {
+  const isEncargadoMode = resumenState.mode === 'encargado';
+  const titleLabel = isEncargadoMode ? `Obras a cargo de ${resumenState.encargado}` : 'Resumen por empresa';
+  const generadoLabel = new Date().toLocaleDateString('es-AR', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  const lines = ['AIA ARQUITECTOS', titleLabel, `Generado el ${generadoLabel}`, ''];
+
+  resumenState.sectionGroups.forEach(({ section, entries }) => {
+    lines.push('='.repeat(40));
+    lines.push((section.name || '').toUpperCase());
+    lines.push('='.repeat(40));
+    entries.forEach(e => {
+      lines.push('');
+      lines.push([e.page.title || 'Sin título', e.dateLabel].filter(Boolean).join(' — '));
+      const body = entryHtmlToPlainText(e.html);
+      if (body) lines.push(body);
+    });
+    lines.push('');
+  });
+
+  return lines.join('\n').trim();
+}
+
 // Arma asunto + cuerpo (texto plano, recortado — ni mailto ni el compose
 // de Gmail por URL soportan HTML o adjuntos) a partir del resumen actual.
 // Devuelve null si no hay nada para mandar.
@@ -2100,12 +2155,12 @@ function buildResumenEmailPayload() {
     ? `Resumen de obras — ${resumenState.encargado}`
     : 'Resumen por empresa';
 
-  let body = (DOM.resumenReport.innerText || DOM.resumenReport.textContent || '').trim();
+  let body = buildResumenPlainText();
   if (!body) {
     toast('No hay contenido en el resumen para enviar.', 'error');
     return null;
   }
-  const LIMIT = 1500; // los clientes de mail truncan o rechazan links muy largos
+  const LIMIT = 3000; // los clientes de mail truncan o rechazan links muy largos
   if (body.length > LIMIT) {
     body = body.slice(0, LIMIT) + '\n\n(resumen recortado — usá "Imprimir" para verlo completo)';
   }

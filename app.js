@@ -134,6 +134,7 @@ const DOM = {
   obrasArea:          $('obras-area'),
   dropboxNavExtra:     $('dropbox-nav-extra'),
   dropboxModulesExtra: $('dropbox-modules-extra'),
+  bottomNavDropboxExtra: $('bottom-nav-dropbox-extra'),
   adminDropboxList:    $('admin-dropbox-list'),
   adminCreateDropboxBtn: $('admin-create-dropbox-btn'),
   // Admin
@@ -2312,10 +2313,19 @@ function renderDropboxRail() {
     <div id="${e.id}-module" class="module"><div id="${e.id}-area"></div></div>
   `).join('');
 
-  DOM.dropboxNavExtra.querySelectorAll('.module-nav-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      switchModule(btn.dataset.module);
-      DOM.moduleSidebar.classList.remove('open');
+  // Barra inferior (mobile): mismos ítems, versión icono+etiqueta chica.
+  DOM.bottomNavDropboxExtra.innerHTML = entries.map(e => `
+    <button class="module-nav-btn bottom-nav-btn hidden" data-module="${e.id}">
+      <span class="bottom-nav-icon">${e.icon}</span><span class="bottom-nav-label">${escHtml(e.name)}</span>
+    </button>
+  `).join('');
+
+  [DOM.dropboxNavExtra, DOM.bottomNavDropboxExtra].forEach(container => {
+    container.querySelectorAll('.module-nav-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        switchModule(btn.dataset.module);
+        DOM.moduleSidebar.classList.remove('open');
+      });
     });
   });
 

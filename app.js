@@ -55,10 +55,18 @@ const SECTION_COLORS = [
 // demás (se distinguen por parentId = id de esta entrada).
 const DROPBOX_LINKS = [
   { id: 'detalles-constructivos',    name: 'Detalles Constructivos',    icon: '📐', type: 'library' },
-  { id: 'antecedentes-municipales',  name: 'Antecedentes Municipales',  icon: '🏛️', type: 'notes' },
+  // "Obras" (ex "Antecedentes Municipales"): vive como módulo propio en el
+  // rail principal, no en la lista de Planos — ver OBRAS_ENTRY_ID,
+  // loadObrasModule y el filtro hideFromPlanos en renderPlanosSidebar. El
+  // id NO cambia (sigue siendo 'antecedentes-municipales'): de eso
+  // dependen los planosPages ya creados (parentId) y el doc de accesos en
+  // `dropboxLinks`.
+  { id: 'antecedentes-municipales',  name: 'Obras',  icon: '🏛️', type: 'notes', hideFromPlanos: true },
   { id: 'normativas',                name: 'Normativas',                icon: '📖', type: 'library' },
   { id: 'proyectos-permiso',         name: 'Proyectos con Permiso',     icon: '📋' },
 ];
+
+const OBRAS_ENTRY_ID = 'antecedentes-municipales';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DOM REFS
@@ -125,6 +133,9 @@ const DOM = {
   planosSidebar: $('planos-sidebar'),
   planosList:    $('planos-list'),
   planosArea:    $('planos-area'),
+  // Obras (ex Antecedentes Municipales, ahora módulo propio del rail)
+  obrasModule:   $('obras-module'),
+  obrasArea:     $('obras-area'),
   adminDropboxList:    $('admin-dropbox-list'),
   // Admin
   adminModule:       $('admin-module'),
@@ -356,6 +367,19 @@ function switchModule(moduleName) {
   if (moduleName === 'planos') {
     renderDropboxModules();
   }
+  if (moduleName === 'obras') {
+    loadObrasModule();
+  }
+}
+
+// "Obras" es un módulo propio del rail principal, aunque por dentro
+// reusa el mismo sistema de notas+archivos por obra que Planos (ver
+// planosNotesState) — apunta siempre a la entrada fija
+// 'antecedentes-municipales' de DROPBOX_LINKS, sin lista de al lado.
+function loadObrasModule() {
+  const entry = DROPBOX_LINKS.find(e => e.id === OBRAS_ENTRY_ID);
+  DOM.obrasArea.className = 'municipal-area';
+  renderPlanosNotesArea(entry, DOM.obrasArea);
 }
 
 function switchAdminTab(tabName) {
@@ -2234,11 +2258,20 @@ function getAccessibleDropboxLinks() {
   return DROPBOX_LINKS.filter(entry => userHasDropboxAccess(entry.id));
 }
 
+// "Obras" (hideFromPlanos) tiene su propio módulo en el rail principal,
+// no en la lista de Planos — se filtra acá.
+function getAccessiblePlanosLinks() {
+  return getAccessibleDropboxLinks().filter(entry => !entry.hideFromPlanos);
+}
+
 // El botón "Planos" del menú se muestra si el usuario tiene acceso a al
-// menos uno de los enlaces.
+// menos uno de los enlaces (sin contar Obras, que tiene su propio botón).
 function updateDropboxNavVisibility() {
-  const hasAccess = getAccessibleDropboxLinks().length > 0;
+  const hasAccess = getAccessiblePlanosLinks().length > 0;
   document.querySelectorAll('.module-nav-btn[data-module="planos"]').forEach(b => b.classList.toggle('hidden', !hasAccess));
+
+  const hasObrasAccess = userHasDropboxAccess(OBRAS_ENTRY_ID);
+  document.querySelectorAll('.module-nav-btn[data-module="obras"]').forEach(b => b.classList.toggle('hidden', !hasObrasAccess));
 }
 
 function renderDropboxModules() {
@@ -2247,7 +2280,7 @@ function renderDropboxModules() {
 }
 
 function renderPlanosSidebar() {
-  const accessible = getAccessibleDropboxLinks();
+  const accessible = getAccessiblePlanosLinks();
 
   if (accessible.length === 0) {
     DOM.planosList.innerHTML = '<div class="empty-state"><p>No tenés planos asignados.<br>Contactá al administrador.</p></div>';
@@ -2288,7 +2321,7 @@ function renderPlanosArea() {
 
   if (entry.type === 'notes') {
     container.className = 'municipal-area';
-    renderPlanosNotesArea(entry);
+    renderPlanosNotesArea(entry, container);
     return;
   }
   if (entry.type === 'library') {
@@ -2328,8 +2361,9 @@ function renderPlanosArea() {
 // PLANOS — ÍTEMS "NOTES" (mini-wiki con notas + archivos por obra)
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// Cubre cualquier entrada de DROPBOX_LINKS con type:'notes' (hoy:
-// "Antecedentes Municipales" y "Normativas" — puede haber más). Todas
+// Cubre cualquier entrada de DROPBOX_LINKS con type:'notes' (hoy: solo
+// "Obras" — antes "Antecedentes Municipales", movida a su propio módulo
+// del rail principal, ver loadObrasModule — puede haber más). Todas
 // comparten una única colección `planosPages`, distinguidas por
 // `parentId` (el id de la entrada), así que agregar una entrada nueva de
 // este tipo no pide tocar el esquema. Reusan las mismas secciones
@@ -2344,6 +2378,7 @@ function renderPlanosArea() {
 
 const planosNotesState = {
   parentId: null,   // qué entrada de DROPBOX_LINKS está cargada (ver abajo)
+  container: null,  // elemento donde se renderiza (Planos u otro módulo, ver Obras)
   loaded: false,
   loading: false,
   sections: [],     // secciones accesibles (mismas que Reuniones)
@@ -2357,7 +2392,8 @@ async function loadPlanosNotesData(entry) {
   if (planosNotesState.loading) return;
   planosNotesState.loading = true;
   planosNotesState.parentId = entry.id;
-  DOM.planosArea.innerHTML = '<div class="empty-state"><p>Cargando...</p></div>';
+  const container = planosNotesState.container;
+  container.innerHTML = '<div class="empty-state"><p>Cargando...</p></div>';
 
   try {
     const [sectionsSnap, pagesSnap, notesSnap] = await Promise.all([
@@ -2376,7 +2412,7 @@ async function loadPlanosNotesData(entry) {
     console.error('loadPlanosNotesData error:', err);
     toast(`Error al cargar ${entry.name}: ` + err.message, 'error');
     planosNotesState.loading = false;
-    DOM.planosArea.innerHTML = `<div class="empty-state"><p>Error al cargar. ${escHtml(err.message)}</p></div>`;
+    container.innerHTML = `<div class="empty-state"><p>Error al cargar. ${escHtml(err.message)}</p></div>`;
     return;
   }
 
@@ -2439,11 +2475,12 @@ async function syncPlanosNotesPages(entry, silent) {
   }
 }
 
-function renderPlanosNotesArea(entry) {
-  const container = DOM.planosArea;
+function renderPlanosNotesArea(entry, targetContainer) {
+  if (targetContainer) planosNotesState.container = targetContainer;
+  const container = planosNotesState.container;
 
-  // Si se cambió a otra entrada 'notes' (ej. de Antecedentes Municipales a
-  // Normativas), hay que recargar — son colecciones lógicas distintas.
+  // Si se cambió a otra entrada 'notes' (o al módulo Obras desde otro
+  // lado), hay que recargar — son colecciones/contenedores distintos.
   if (!planosNotesState.loaded || planosNotesState.parentId !== entry.id) {
     planosNotesState.loaded = false;
     loadPlanosNotesData(entry);

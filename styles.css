@@ -737,6 +737,11 @@ input[type="date"] { -webkit-appearance: none; appearance: none; }
 /* ═══════════════════════════════════════════════════════════════════════════ */
 #planos-module { flex-direction: row; }
 
+/* Obras (ex Antecedentes Municipales): un solo hijo (#obras-area) que
+   toma toda la ficha .municipal-area seteada por JS al renderizar. */
+#obras-module { flex-direction: row; }
+#obras-area { flex: 1; min-width: 0; }
+
 #planos-sidebar {
   width: var(--wiki-sidebar-w);
   background: var(--sidebar-bg);

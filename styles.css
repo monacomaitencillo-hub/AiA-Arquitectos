@@ -788,11 +788,12 @@ input[type="date"] { -webkit-appearance: none; appearance: none; }
 .municipal-editor { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 20px 28px; overflow-y: auto; }
 .municipal-editor-title { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 12px; }
 #municipal-notes {
-  width: 100%; min-height: 50vh; resize: vertical;
+  width: 100%; flex: 1; min-height: 60vh; resize: vertical;
   border: 1px solid var(--border); border-radius: var(--radius);
   padding: 10px 12px; font: inherit; font-size: 14px; color: var(--text); background: var(--bg);
   line-height: 1.6; margin-bottom: 18px;
 }
+.municipal-files { flex-shrink: 0; }
 #municipal-notes:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb),.08); }
 #municipal-notes:disabled { color: var(--text-muted); background: var(--sidebar-hover); }
 .municipal-notes-header {

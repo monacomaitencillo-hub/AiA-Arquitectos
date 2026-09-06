@@ -175,6 +175,10 @@ input[type="date"] { -webkit-appearance: none; appearance: none; }
   letter-spacing: -.2px;
 }
 .module-nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+/* Detalles Constructivos, Normativas, Proyectos con Permiso y cualquier
+   ítem agregado desde Administración se arman acá en runtime (ver
+   renderDropboxRail en app.js) — mismo espaciado que el resto del menú. */
+#dropbox-nav-extra { display: flex; flex-direction: column; gap: 2px; }
 .module-nav-btn {
   width: 100%; text-align: left;
   padding: 9px 12px;

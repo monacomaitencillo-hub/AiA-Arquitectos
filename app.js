@@ -129,15 +129,13 @@ const DOM = {
   resumenGmailBtn:       $('resumen-gmail-btn'),
   resumenEmailBtn:       $('resumen-email-btn'),
   // Obras (ex Antecedentes Municipales) y los ex-ítems de Planos, cada
-  // uno su propio módulo del rail (ver DROPBOX_LINKS).
-  obrasModule:   $('obras-module'),
-  obrasArea:     $('obras-area'),
-  dropboxEntryAreas: {
-    'detalles-constructivos': $('detalles-constructivos-area'),
-    'normativas':             $('normativas-area'),
-    'proyectos-permiso':      $('proyectos-permiso-area'),
-  },
+  // uno su propio módulo del rail (ver DROPBOX_LINKS/renderDropboxRail).
+  obrasModule:        $('obras-module'),
+  obrasArea:          $('obras-area'),
+  dropboxNavExtra:     $('dropbox-nav-extra'),
+  dropboxModulesExtra: $('dropbox-modules-extra'),
   adminDropboxList:    $('admin-dropbox-list'),
+  adminCreateDropboxBtn: $('admin-create-dropbox-btn'),
   // Admin
   adminModule:       $('admin-module'),
   usersTableBody:    $('users-table-body'),
@@ -368,7 +366,7 @@ function switchModule(moduleName) {
   if (moduleName === 'obras') {
     loadObrasModule();
   }
-  if (DOM.dropboxEntryAreas[moduleName]) {
+  if (getDropboxEntry(moduleName)) {
     loadDropboxEntryModule(moduleName);
   }
 }
@@ -382,13 +380,15 @@ function loadObrasModule() {
   renderPlanosNotesArea(entry, DOM.obrasArea);
 }
 
-// Detalles Constructivos, Normativas y Proyectos con Permiso: cada uno
-// su propio módulo del rail (sin lista de obras de por medio), ver
-// DROPBOX_LINKS. 'library' arma grupos de PDFs a mano; el resto es un
-// solo link a una carpeta compartida.
+// Detalles Constructivos, Normativas, Proyectos con Permiso y cualquier
+// ítem que se agregue desde Administración → Dropbox: cada uno su propio
+// módulo del rail (sin lista de obras de por medio). 'library' arma
+// grupos de PDFs a mano; el resto es un solo link a una carpeta
+// compartida (ver getAllExtraDropboxEntries/renderDropboxRail).
 function loadDropboxEntryModule(id) {
-  const entry = DROPBOX_LINKS.find(e => e.id === id);
-  const area = DOM.dropboxEntryAreas[id];
+  const entry = getDropboxEntry(id);
+  const area = $(`${id}-area`);
+  if (!entry || !area) return;
   if (entry.type === 'library') {
     area.className = 'library-area';
     renderPlanosLibraryArea(entry, area);
@@ -2246,7 +2246,10 @@ DOM.resumenEmailBtn.addEventListener('click', () => {
 //
 // Detalles Constructivos, Normativas y Proyectos con Permiso tienen cada
 // uno su propio botón/módulo en el rail (ver DROPBOX_LINKS y
-// loadDropboxEntryModule), separados de la lista de obras. "Proyectos con
+// loadDropboxEntryModule), separados de la lista de obras. Desde
+// Administración → Dropbox se puede además renombrarlos y agregar ítems
+// nuevos (quedan guardados en Firestore con custom:true, ver
+// getAllExtraDropboxEntries/createCustomDropboxEntry). "Proyectos con
 // Permiso" solo apunta a una carpeta compartida en el Dropbox de
 // aia.arq@gmail.com (mismo mecanismo de acceso que las secciones de
 // Reuniones: allowedUids por doc, acá en la colección `dropboxLinks`).
@@ -2258,7 +2261,7 @@ async function loadDropboxLinks() {
   } catch (err) {
     console.error('loadDropboxLinks error:', err);
   }
-  updateDropboxNavVisibility();
+  renderDropboxRail();
 }
 
 function userHasDropboxAccess(linkId) {
@@ -2268,13 +2271,66 @@ function userHasDropboxAccess(linkId) {
   return !!link && Array.isArray(link.allowedUids) && link.allowedUids.includes(userData.uid);
 }
 
+// Las 3 entradas de siempre (nombre puede haber sido editado desde
+// Administración, se guarda en `dropboxLinks.name`) + cualquier ítem
+// agregado a mano (doc en `dropboxLinks` con custom:true, sin entrada
+// fija en DROPBOX_LINKS). No incluye "Obras" (su id/módulo son fijos).
+function getAllExtraDropboxEntries() {
+  const staticOnes = DROPBOX_LINKS.filter(e => e.id !== OBRAS_ENTRY_ID).map(e => ({
+    ...e,
+    name: (state.dropboxLinks[e.id] && state.dropboxLinks[e.id].name) || e.name,
+  }));
+  const customOnes = Object.keys(state.dropboxLinks)
+    .filter(id => state.dropboxLinks[id].custom && !DROPBOX_LINKS.some(e => e.id === id))
+    .map(id => {
+      const doc = state.dropboxLinks[id];
+      return { id, name: doc.name || 'Sin nombre', icon: doc.icon || '📁', type: doc.type || 'library' };
+    });
+  return [...staticOnes, ...customOnes];
+}
+
+function getDropboxEntry(id) {
+  if (id === OBRAS_ENTRY_ID) return DROPBOX_LINKS.find(e => e.id === id);
+  return getAllExtraDropboxEntries().find(e => e.id === id);
+}
+
+// Arma (o reconstruye) los botones del rail y los módulos de pantalla
+// completa para Detalles Constructivos, Normativas, Proyectos con
+// Permiso y cualquier ítem agregado desde Administración. Se llama al
+// cargar la app y cada vez que se crea/renombra un ítem, para que el
+// menú quede al día sin recargar la página.
+function renderDropboxRail() {
+  const entries = getAllExtraDropboxEntries();
+
+  DOM.dropboxNavExtra.innerHTML = entries.map(e => `
+    <button class="module-nav-btn hidden" data-module="${e.id}">
+      <span class="module-nav-icon">${e.icon}</span>${escHtml(e.name)}
+    </button>
+  `).join('');
+
+  DOM.dropboxModulesExtra.innerHTML = entries.map(e => `
+    <div id="${e.id}-module" class="module"><div id="${e.id}-area"></div></div>
+  `).join('');
+
+  DOM.dropboxNavExtra.querySelectorAll('.module-nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      switchModule(btn.dataset.module);
+      DOM.moduleSidebar.classList.remove('open');
+    });
+  });
+
+  updateDropboxNavVisibility();
+}
+
 // Cada botón del rail para una entrada de DROPBOX_LINKS se muestra u
 // oculta según si el usuario tiene acceso a esa entrada puntual.
 function updateDropboxNavVisibility() {
-  DROPBOX_LINKS.forEach(entry => {
-    const moduleName = entry.id === OBRAS_ENTRY_ID ? 'obras' : entry.id;
+  const hasObrasAccess = userHasDropboxAccess(OBRAS_ENTRY_ID);
+  document.querySelectorAll('.module-nav-btn[data-module="obras"]').forEach(b => b.classList.toggle('hidden', !hasObrasAccess));
+
+  getAllExtraDropboxEntries().forEach(entry => {
     const show = userHasDropboxAccess(entry.id);
-    document.querySelectorAll(`.module-nav-btn[data-module="${moduleName}"]`).forEach(b => b.classList.toggle('hidden', !show));
+    document.querySelectorAll(`.module-nav-btn[data-module="${entry.id}"]`).forEach(b => b.classList.toggle('hidden', !show));
   });
 }
 
@@ -2946,7 +3002,7 @@ async function deletePlanosGroupFile(groupId, index) {
       files: firebase.firestore.FieldValue.arrayRemove(file),
     });
     group.files = group.files.filter((_, i) => i !== index);
-    const entry = DROPBOX_LINKS.find(e => e.id === planosLibraryState.parentId);
+    const entry = getDropboxEntry(planosLibraryState.parentId);
     if (entry) renderPlanosLibraryArea(entry);
   } catch (err) {
     console.error('deletePlanosGroupFile error:', err);
@@ -3272,31 +3328,34 @@ async function loadAdminDropbox() {
     const users = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
     renderAdminDropbox(users);
-    updateDropboxNavVisibility();
+    renderDropboxRail();
   } catch (err) {
     DOM.adminDropboxList.innerHTML = `<p style="color:var(--danger)">Error: ${err.message}</p>`;
   }
 }
 
+// "Obras" (type:'notes') no tiene nombre editable acá porque su botón del
+// rail es texto fijo en app.html. Todo lo demás (Detalles Constructivos,
+// Normativas, Proyectos con Permiso y cualquier ítem agregado a mano)
+// tiene nombre editable — 'library' además no usa enlace de Dropbox.
 function renderAdminDropbox(users) {
-  DOM.adminDropboxList.innerHTML = DROPBOX_LINKS.map(entry => {
+  const entries = [DROPBOX_LINKS.find(e => e.id === OBRAS_ENTRY_ID), ...getAllExtraDropboxEntries()];
+
+  DOM.adminDropboxList.innerHTML = entries.map(entry => {
     const link = state.dropboxLinks[entry.id] || {};
     const allowedUsers = users.filter(u => (link.allowedUids || []).includes(u.uid));
     const accessLabel  = allowedUsers.length === 0
       ? '<em style="color:var(--text-muted)">Sin acceso asignado</em>'
       : allowedUsers.map(u => `<span style="font-size:12px;background:var(--sidebar-bg);padding:2px 6px;border-radius:99px;margin:2px">${escHtml(u.name || u.email)}</span>`).join('');
 
-    if (entry.type === 'notes' || entry.type === 'library') {
-      const desc = entry.type === 'notes'
-        ? 'Mini-wiki con notas y archivos por obra (copiadas de Reuniones) — no usa enlace de Dropbox.'
-        : 'Grupos armados a mano para juntar PDFs sueltos — no usa enlace de Dropbox.';
+    if (entry.type === 'notes') {
       return `
         <div class="dropbox-admin-card" data-link-id="${entry.id}">
           <div class="dropbox-admin-card-header">
             <span class="dropbox-admin-card-title">${entry.icon} ${escHtml(entry.name)}</span>
             <button class="btn-sm js-manage-dropbox-access" data-id="${entry.id}">👥 Accesos</button>
           </div>
-          <p class="section-card-meta" style="margin:8px 0">${desc}</p>
+          <p class="section-card-meta" style="margin:8px 0">Mini-wiki con notas y archivos por obra (copiadas de Reuniones) — no usa enlace de Dropbox.</p>
           <div class="dropbox-admin-card-footer">
             <span class="section-card-meta">Acceso: ${accessLabel}</span>
           </div>
@@ -3304,6 +3363,7 @@ function renderAdminDropbox(users) {
       `;
     }
 
+    const isLibrary = entry.type === 'library';
     return `
       <div class="dropbox-admin-card" data-link-id="${entry.id}">
         <div class="dropbox-admin-card-header">
@@ -3311,12 +3371,20 @@ function renderAdminDropbox(users) {
           <button class="btn-sm js-manage-dropbox-access" data-id="${entry.id}">👥 Accesos</button>
         </div>
         <div class="form-group" style="margin:10px 0 4px">
-          <label>Enlace de la carpeta compartida de Dropbox</label>
-          <input type="text" class="js-dropbox-url" data-id="${entry.id}" placeholder="https://www.dropbox.com/scl/fo/..." value="${escHtml(link.url || '')}" />
+          <label>Nombre (se muestra como botón en el menú)</label>
+          <input type="text" class="js-dropbox-name" data-id="${entry.id}" value="${escHtml(entry.name)}" />
         </div>
+        ${isLibrary
+          ? '<p class="section-card-meta" style="margin:4px 0 8px">Grupos armados a mano para juntar PDFs sueltos — no usa enlace de Dropbox.</p>'
+          : `
+          <div class="form-group" style="margin:10px 0 4px">
+            <label>Enlace de la carpeta compartida de Dropbox</label>
+            <input type="text" class="js-dropbox-url" data-id="${entry.id}" placeholder="https://www.dropbox.com/scl/fo/..." value="${escHtml(link.url || '')}" />
+          </div>
+        `}
         <div class="dropbox-admin-card-footer">
           <span class="section-card-meta">Acceso: ${accessLabel}</span>
-          <button class="btn-sm primary js-save-dropbox-url" data-id="${entry.id}">Guardar enlace</button>
+          <button class="btn-sm primary js-save-dropbox-entry" data-id="${entry.id}">Guardar</button>
         </div>
       </div>
     `;
@@ -3330,32 +3398,37 @@ function renderAdminDropbox(users) {
 // que el cambio se vea al toque sin recargar la página.
 function refreshActiveDropboxModule() {
   if (DOM.obrasModule.classList.contains('active')) { loadObrasModule(); return; }
-  Object.keys(DOM.dropboxEntryAreas).forEach(id => {
-    const moduleEl = $(`${id}-module`);
-    if (moduleEl && moduleEl.classList.contains('active')) loadDropboxEntryModule(id);
+  getAllExtraDropboxEntries().forEach(entry => {
+    const moduleEl = $(`${entry.id}-module`);
+    if (moduleEl && moduleEl.classList.contains('active')) loadDropboxEntryModule(entry.id);
   });
 }
 
 function bindAdminDropboxButtons(users) {
-  DOM.adminDropboxList.querySelectorAll('.js-save-dropbox-url').forEach(btn => {
+  DOM.adminCreateDropboxBtn.onclick = () => createCustomDropboxEntry();
+
+  DOM.adminDropboxList.querySelectorAll('.js-save-dropbox-entry').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const id     = btn.dataset.id;
-      const entry  = DROPBOX_LINKS.find(l => l.id === id);
-      const input  = DOM.adminDropboxList.querySelector(`.js-dropbox-url[data-id="${id}"]`);
-      const url    = input.value.trim();
-      const existing = state.dropboxLinks[id] || {};
+      const id        = btn.dataset.id;
+      const entry     = getDropboxEntry(id);
+      const nameInput = DOM.adminDropboxList.querySelector(`.js-dropbox-name[data-id="${id}"]`);
+      const urlInput  = DOM.adminDropboxList.querySelector(`.js-dropbox-url[data-id="${id}"]`);
+      const name      = (nameInput.value.trim()) || entry.name;
+      const url       = urlInput ? urlInput.value.trim() : (state.dropboxLinks[id]?.url || '');
+      const existing  = state.dropboxLinks[id] || {};
 
       btn.disabled = true;
       try {
         await db.collection('dropboxLinks').doc(id).set({
-          name: entry.name,
+          ...existing,
+          name,
           url,
           allowedUids: existing.allowedUids || [],
         }, { merge: true });
-        state.dropboxLinks[id] = { ...existing, name: entry.name, url };
-        updateDropboxNavVisibility();
+        state.dropboxLinks[id] = { ...existing, name, url, allowedUids: existing.allowedUids || [] };
+        renderDropboxRail();
         refreshActiveDropboxModule();
-        toast('Enlace guardado', 'success');
+        toast('Guardado', 'success');
       } catch (err) {
         toast('Error: ' + err.message, 'error');
       } finally {
@@ -3367,11 +3440,35 @@ function bindAdminDropboxButtons(users) {
   DOM.adminDropboxList.querySelectorAll('.js-manage-dropbox-access').forEach(btn => {
     btn.addEventListener('click', () => {
       const id    = btn.dataset.id;
-      const entry = DROPBOX_LINKS.find(l => l.id === id);
+      const entry = getDropboxEntry(id);
       const link  = state.dropboxLinks[id] || {};
       openManageDropboxAccessModal(entry, link, users);
     });
   });
+}
+
+// Crea un ítem nuevo en el menú (Administración → Dropbox → + Nuevo
+// ítem): arma un grupo de PDFs igual que Normativas/Detalles
+// Constructivos. Queda visible solo para administradores hasta que se
+// le asignen accesos desde "👥 Accesos", igual que los demás ítems.
+async function createCustomDropboxEntry() {
+  const name = (prompt('Nombre del nuevo ítem (aparecerá como botón en el menú):') || '').trim();
+  if (!name) return;
+
+  DOM.adminCreateDropboxBtn.disabled = true;
+  try {
+    const ref = db.collection('dropboxLinks').doc();
+    const data = { name, type: 'library', url: '', allowedUids: [], custom: true, icon: '📁' };
+    await ref.set(data);
+    state.dropboxLinks[ref.id] = data;
+    renderDropboxRail();
+    loadAdminDropbox();
+    toast('Ítem creado', 'success');
+  } catch (err) {
+    toast('Error: ' + err.message, 'error');
+  } finally {
+    DOM.adminCreateDropboxBtn.disabled = false;
+  }
 }
 
 function openManageDropboxAccessModal(entry, link, allUsers) {

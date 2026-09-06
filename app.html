@@ -50,17 +50,13 @@
         <button class="module-nav-btn hidden" data-module="obras" id="obras-nav-btn">
           <span class="module-nav-icon">🏛️</span>Obras
         </button>
+        <!-- Detalles Constructivos, Normativas, Proyectos con Permiso y
+             cualquier ítem nuevo que se agregue desde Administración →
+             Dropbox se renderizan acá (ver renderDropboxRail en app.js) -->
+        <div id="dropbox-nav-extra"></div>
+        <!-- Administración siempre al final del menú -->
         <button class="module-nav-btn hidden" data-module="admin" id="admin-nav-btn">
           <span class="module-nav-icon">⚙️</span>Administración
-        </button>
-        <button class="module-nav-btn hidden" data-module="detalles-constructivos" id="detalles-constructivos-nav-btn">
-          <span class="module-nav-icon">📐</span>Detalles Constructivos
-        </button>
-        <button class="module-nav-btn hidden" data-module="normativas" id="normativas-nav-btn">
-          <span class="module-nav-icon">📖</span>Normativas
-        </button>
-        <button class="module-nav-btn hidden" data-module="proyectos-permiso" id="proyectos-permiso-nav-btn">
-          <span class="module-nav-icon">📋</span>Proyectos con Permiso
         </button>
       </div>
 
@@ -303,18 +299,10 @@
         <div id="obras-area"></div>
       </div><!-- /obras-module -->
 
-      <!-- ── EX MÓDULO "PLANOS": ahora 3 módulos propios del riel ────────── -->
-      <div id="detalles-constructivos-module" class="module">
-        <div id="detalles-constructivos-area"></div>
-      </div><!-- /detalles-constructivos-module -->
-
-      <div id="normativas-module" class="module">
-        <div id="normativas-area"></div>
-      </div><!-- /normativas-module -->
-
-      <div id="proyectos-permiso-module" class="module">
-        <div id="proyectos-permiso-area"></div>
-      </div><!-- /proyectos-permiso-module -->
+      <!-- Detalles Constructivos, Normativas, Proyectos con Permiso y
+           cualquier ítem nuevo agregado desde Administración → Dropbox:
+           sus módulos se arman acá (ver renderDropboxRail en app.js) -->
+      <div id="dropbox-modules-extra"></div>
 
       <!-- ── ADMIN MODULE ──────────────────────────────────────────── -->
       <div id="admin-module" class="module">
@@ -367,6 +355,7 @@
         <div id="tab-dropbox" class="admin-tab-content">
           <div class="content-toolbar">
             <h3>Carpetas de Dropbox (aia.arq@gmail.com)</h3>
+            <button class="btn-sm primary" id="admin-create-dropbox-btn">+ Nuevo ítem</button>
           </div>
           <div id="admin-dropbox-list"></div>
         </div>

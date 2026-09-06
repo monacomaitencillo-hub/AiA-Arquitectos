@@ -733,34 +733,14 @@ input[type="date"] { -webkit-appearance: none; appearance: none; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
-/* PLANOS MODULE                                                               */
+/* OBRAS MODULE (incluye adentro lo que antes era el módulo Planos aparte)     */
 /* ═══════════════════════════════════════════════════════════════════════════ */
-#planos-module { flex-direction: row; }
-
-/* Obras (ex Antecedentes Municipales): un solo hijo (#obras-area) que
-   toma toda la ficha .municipal-area seteada por JS al renderizar. */
+/* Un solo hijo (#obras-area) que toma toda la ficha .municipal-area seteada
+   por JS al renderizar. */
 #obras-module { flex-direction: row; }
 #obras-area { flex: 1; min-width: 0; }
 
-#planos-sidebar {
-  width: var(--wiki-sidebar-w);
-  background: var(--sidebar-bg);
-  border-right: 1px solid var(--border);
-  display: flex; flex-direction: column;
-  flex-shrink: 0; overflow: hidden;
-}
-#planos-list { flex: 1; overflow-y: auto; padding: 4px 8px 16px; }
-
-.planos-item {
-  display: flex; align-items: center; gap: 8px;
-  padding: 9px 10px; border-radius: var(--radius);
-  cursor: pointer; transition: background .12s; margin-bottom: 2px;
-  font-size: 13px; color: var(--text); line-height: 1.35;
-}
-.planos-item:hover { background: var(--sidebar-hover); }
-.planos-item.active { background: var(--accent-light); color: var(--accent); font-weight: 600; }
-
-/* Antecedentes Municipales — mini-wiki dentro de Planos (secciones/obras
+/* Obras — mini-wiki (secciones/obras
    copiadas de Reuniones, con notas de texto y archivos por obra). */
 .municipal-area { display: flex; height: 100%; overflow: hidden; padding: 0; }
 .municipal-sidebar {
@@ -774,6 +754,10 @@ input[type="date"] { -webkit-appearance: none; appearance: none; }
   text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted);
   border-bottom: 1px solid var(--border); flex-shrink: 0;
 }
+.municipal-extra-list {
+  flex-shrink: 0; padding: 6px 8px; border-bottom: 1px solid var(--border);
+}
+.municipal-extra-item { font-weight: 500; }
 .municipal-sections-list { flex: 1; overflow-y: auto; padding: 6px 8px 16px; }
 .municipal-section-group { margin-bottom: 10px; }
 .municipal-section-name {
@@ -834,7 +818,6 @@ input[type="date"] { -webkit-appearance: none; appearance: none; }
 
 /* Normativas (y cualquier otro ítem 'library') — grupos armados a mano
    para juntar PDFs sueltos, sin obras/secciones de por medio. */
-.library-area { display: flex; flex-direction: column; height: 100%; overflow-y: auto; padding: 20px 28px; }
 .library-header {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: 16px; font-size: 17px; font-weight: 700; color: var(--text);
@@ -972,13 +955,6 @@ input[type="date"] { -webkit-appearance: none; appearance: none; }
 .dropbox-admin-card-title { font-size: 14px; font-weight: 600; }
 .dropbox-admin-card-footer {
   display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 6px;
-}
-
-/* Dropbox links (module view) */
-.dropbox-area {
-  flex: 1; overflow-y: auto;
-  display: flex; align-items: center; justify-content: center;
-  padding: 20px;
 }
 
 /* Activity */
@@ -1212,23 +1188,10 @@ input[type="date"] { -webkit-appearance: none; appearance: none; }
   .resumen-toolbar-actions .btn-sm { flex: 1; text-align: center; }
   #resumen-email-to { flex: 1 1 100%; width: auto; }
 
-  #planos-module { flex-direction: column; }
-
-  #planos-sidebar {
-    position: fixed; top: 0; left: 0;
-    bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom));
-    z-index: 80; transform: translateX(-100%);
-    width: 260px; border-right: 1px solid var(--border);
-  }
-  #planos-sidebar.open { transform: translateX(0); box-shadow: var(--shadow-lg); }
-
-  #planos-area { width: 100%; }
-
   .municipal-area { flex-direction: column; }
   .municipal-sidebar { width: 100%; max-height: 40vh; border-right: none; border-bottom: 1px solid var(--border); }
   .municipal-editor { padding: 16px; }
 
-  .library-area { padding: 16px; }
   .library-group-header { flex-wrap: wrap; }
 
   .admin-tab-content { padding: 16px 16px calc(16px + var(--bottom-nav-h) + env(safe-area-inset-bottom)); }
@@ -1251,7 +1214,6 @@ input[type="date"] { -webkit-appearance: none; appearance: none; }
 @media (min-width: 769px) {
   #wiki-sidebar { transform: none !important; }
   #module-sidebar { transform: none !important; }
-  #planos-sidebar { transform: none !important; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */

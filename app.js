@@ -2514,6 +2514,10 @@ function renderPlanosNotesEditor() {
 
   editor.innerHTML = `
     <div class="municipal-editor-title">${escHtml(item.title || 'Sin título')}</div>
+    <div class="municipal-notes-header">
+      <span>Notas</span>
+      ${canEdit ? '<button type="button" class="btn-sm" id="municipal-insert-date-btn">📅 Fecha</button>' : ''}
+    </div>
     <textarea id="municipal-notes" placeholder="Notas..." ${canEdit ? '' : 'disabled'}>${escHtml(item.notes || '')}</textarea>
     <div class="municipal-files">
       <div class="municipal-files-header">
@@ -2549,6 +2553,8 @@ function renderPlanosNotesEditor() {
     clearTimeout(planosNotesState.notesTimer);
     planosNotesState.notesTimer = setTimeout(() => savePlanosNotesText(item.id, notesEl.value), 1000);
   });
+
+  $('municipal-insert-date-btn')?.addEventListener('click', () => openInsertNotesDateModal(notesEl));
 
   $('municipal-add-link-btn')?.addEventListener('click', () => {
     openAddDropboxLinkModal(async ({ name, url }) => {
@@ -2602,6 +2608,49 @@ function dropboxRawLinkUrl(rawUrl) {
   } catch {
     return rawUrl.trim();
   }
+}
+
+// Inserta una fecha (elegida en un calendario, formateada en español
+// como en Reuniones) en el textarea de notas, en la posición del cursor
+// — un campo de texto simple no tiene botón de "insertar fecha" propio
+// como el editor de Reuniones, así que se arma acá con el mismo formato.
+function openInsertNotesDateModal(textareaEl) {
+  const start = textareaEl.selectionStart ?? textareaEl.value.length;
+  const end = textareaEl.selectionEnd ?? textareaEl.value.length;
+
+  openModal({
+    title: 'Insertar fecha',
+    body: `
+      <div class="form-group">
+        <label>Fecha</label>
+        <input id="m-insert-date" type="date" value="${todayInputValue()}" />
+      </div>
+    `,
+    footer: `
+      <button class="btn-sm" id="m-cancel-btn">Cancelar</button>
+      <button class="btn-sm primary" id="m-confirm-btn">Insertar</button>
+    `,
+  });
+
+  $('m-cancel-btn').addEventListener('click', closeModal);
+  $('m-confirm-btn').addEventListener('click', () => {
+    const dateValue = $('m-insert-date').value;
+    if (!dateValue) return;
+
+    const label = formatDayLabel(parseDateInputValue(dateValue));
+    const before = textareaEl.value.slice(0, start);
+    const after = textareaEl.value.slice(end);
+    const prefix = before && !before.endsWith('\n') ? '\n' : '';
+    const suffix = after && !after.startsWith('\n') ? '\n' : '';
+    const insert = `${prefix}${label}\n${suffix}`;
+
+    textareaEl.value = before + insert + after;
+    const caret = (before + insert).length;
+    closeModal();
+    textareaEl.focus();
+    textareaEl.setSelectionRange(caret, caret);
+    textareaEl.dispatchEvent(new Event('input', { bubbles: true }));
+  });
 }
 
 // Modal chico con dos botones para mandar el link de un archivo por

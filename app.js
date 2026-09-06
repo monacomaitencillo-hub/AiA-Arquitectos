@@ -44,35 +44,29 @@ const SECTION_COLORS = [
   '#14b8a6','#3b82f6','#8b5cf6','#ec4899',
 ];
 
-// Ex módulo "Planos": ya no existe como botón propio del rail — sus 3
-// entradas ahora se muestran arriba de la lista de obras, DENTRO del
-// módulo "Obras" (marcadas con inObrasMenu:true), para que todo quede en
-// un solo lugar del menú. El id de "Obras" NO cambia (sigue siendo
-// 'antecedentes-municipales', su nombre original): de eso dependen los
-// planosPages ya creados (parentId) y el doc de accesos en `dropboxLinks`.
+// Ex módulo "Planos": ya no existe como un único botón del rail — sus 3
+// entradas (Detalles Constructivos, Normativas, Proyectos con Permiso)
+// son ahora cada una su propio módulo del rail, separadas de la lista de
+// obras. El id de "Obras" NO cambia (sigue siendo 'antecedentes-municipales',
+// su nombre original): de eso dependen los planosPages ya creados
+// (parentId) y el doc de accesos en `dropboxLinks`.
 //
 // Tipos, aparte del default ('dropbox': un botón que abre una carpeta
-// compartida de Dropbox en pestaña nueva):
+// compartida de Dropbox en pestaña nueva). Cada una es su propio módulo del
+// riel principal (botón propio en el menú oscuro de la izquierda):
 //  - 'notes': mini-wiki con las obras (secciones/páginas) copiadas de
 //    Reuniones, con notas de texto y archivos por obra (ver planosPages).
-//    Es lo que arma el módulo "Obras" en sí — no tiene inObrasMenu porque
-//    no es un ítem MÁS del menú de Obras, es Obras.
+//    Es lo que arma el módulo "Obras".
 //  - 'library': sin obras — solo grupos que arma el usuario a mano (ej.
 //    "OGUC", "Plan Regulador") para juntar PDFs sueltos (ver planosGroups).
 const DROPBOX_LINKS = [
-  { id: 'detalles-constructivos',    name: 'Detalles Constructivos',    icon: '📐', type: 'library', inObrasMenu: true },
+  { id: 'detalles-constructivos',    name: 'Detalles Constructivos',    icon: '📐', type: 'library' },
   { id: 'antecedentes-municipales',  name: 'Obras',                     icon: '🏛️', type: 'notes' },
-  { id: 'normativas',                name: 'Normativas',                icon: '📖', type: 'library', inObrasMenu: true },
-  { id: 'proyectos-permiso',         name: 'Proyectos con Permiso',     icon: '📋', inObrasMenu: true },
+  { id: 'normativas',                name: 'Normativas',                icon: '📖', type: 'library' },
+  { id: 'proyectos-permiso',         name: 'Proyectos con Permiso',     icon: '📋' },
 ];
 
 const OBRAS_ENTRY_ID = 'antecedentes-municipales';
-
-// Estado de qué se ve en el panel derecho de "Obras": null = la obra
-// seleccionada (comportamiento de siempre); si no, el id de una de las
-// entradas inObrasMenu (Detalles Constructivos, Normativas, Proyectos
-// con Permiso), mostrada ahí en vez de la ficha de la obra.
-const obrasState = { extraId: null };
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DOM REFS
@@ -134,10 +128,15 @@ const DOM = {
   resumenEmailDatalist:  $('resumen-email-datalist'),
   resumenGmailBtn:       $('resumen-gmail-btn'),
   resumenEmailBtn:       $('resumen-email-btn'),
-  // Obras (ex Antecedentes Municipales, ahora módulo propio del rail —
-  // incluye adentro lo que antes era el módulo Planos aparte)
+  // Obras (ex Antecedentes Municipales) y los ex-ítems de Planos, cada
+  // uno su propio módulo del rail (ver DROPBOX_LINKS).
   obrasModule:   $('obras-module'),
   obrasArea:     $('obras-area'),
+  dropboxEntryAreas: {
+    'detalles-constructivos': $('detalles-constructivos-area'),
+    'normativas':             $('normativas-area'),
+    'proyectos-permiso':      $('proyectos-permiso-area'),
+  },
   adminDropboxList:    $('admin-dropbox-list'),
   // Admin
   adminModule:       $('admin-module'),
@@ -369,16 +368,34 @@ function switchModule(moduleName) {
   if (moduleName === 'obras') {
     loadObrasModule();
   }
+  if (DOM.dropboxEntryAreas[moduleName]) {
+    loadDropboxEntryModule(moduleName);
+  }
 }
 
-// "Obras" es un módulo propio del rail principal, aunque por dentro
-// reusa el mismo sistema de notas+archivos por obra que Planos (ver
-// planosNotesState) — apunta siempre a la entrada fija
-// 'antecedentes-municipales' de DROPBOX_LINKS, sin lista de al lado.
+// "Obras" es un módulo propio del rail principal — apunta siempre a la
+// entrada fija 'antecedentes-municipales' de DROPBOX_LINKS, sin lista
+// de al lado.
 function loadObrasModule() {
   const entry = DROPBOX_LINKS.find(e => e.id === OBRAS_ENTRY_ID);
   DOM.obrasArea.className = 'municipal-area';
   renderPlanosNotesArea(entry, DOM.obrasArea);
+}
+
+// Detalles Constructivos, Normativas y Proyectos con Permiso: cada uno
+// su propio módulo del rail (sin lista de obras de por medio), ver
+// DROPBOX_LINKS. 'library' arma grupos de PDFs a mano; el resto es un
+// solo link a una carpeta compartida.
+function loadDropboxEntryModule(id) {
+  const entry = DROPBOX_LINKS.find(e => e.id === id);
+  const area = DOM.dropboxEntryAreas[id];
+  if (entry.type === 'library') {
+    area.className = 'library-area';
+    renderPlanosLibraryArea(entry, area);
+  } else {
+    area.className = 'dropbox-area';
+    renderDropboxLinkView(area, entry);
+  }
 }
 
 function switchAdminTab(tabName) {
@@ -2224,14 +2241,13 @@ DOM.resumenEmailBtn.addEventListener('click', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// EX MÓDULO "PLANOS" — hoy son 3 entradas dentro de "Obras"
+// EX MÓDULO "PLANOS" — hoy son 3 módulos propios del rail
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// Detalles Constructivos, Normativas y Proyectos con Permiso ya no tienen su
-// propio botón/módulo en el rail — se muestran arriba de la lista de obras
-// DENTRO de "Obras" (ver DROPBOX_LINKS/inObrasMenu y renderPlanosNotesArea).
-// Ninguna tiene contenido propio en el portal más allá de eso: "Proyectos
-// con Permiso" solo apunta a una carpeta compartida en el Dropbox de
+// Detalles Constructivos, Normativas y Proyectos con Permiso tienen cada
+// uno su propio botón/módulo en el rail (ver DROPBOX_LINKS y
+// loadDropboxEntryModule), separados de la lista de obras. "Proyectos con
+// Permiso" solo apunta a una carpeta compartida en el Dropbox de
 // aia.arq@gmail.com (mismo mecanismo de acceso que las secciones de
 // Reuniones: allowedUids por doc, acá en la colección `dropboxLinks`).
 
@@ -2252,15 +2268,14 @@ function userHasDropboxAccess(linkId) {
   return !!link && Array.isArray(link.allowedUids) && link.allowedUids.includes(userData.uid);
 }
 
-function getAccessibleDropboxLinks() {
-  return DROPBOX_LINKS.filter(entry => userHasDropboxAccess(entry.id));
-}
-
-// El botón "Obras" del menú se muestra si el usuario tiene acceso a esa
-// entrada (las otras tres viven adentro de Obras, ver renderObrasExtraMenu).
+// Cada botón del rail para una entrada de DROPBOX_LINKS se muestra u
+// oculta según si el usuario tiene acceso a esa entrada puntual.
 function updateDropboxNavVisibility() {
-  const hasObrasAccess = userHasDropboxAccess(OBRAS_ENTRY_ID);
-  document.querySelectorAll('.module-nav-btn[data-module="obras"]').forEach(b => b.classList.toggle('hidden', !hasObrasAccess));
+  DROPBOX_LINKS.forEach(entry => {
+    const moduleName = entry.id === OBRAS_ENTRY_ID ? 'obras' : entry.id;
+    const show = userHasDropboxAccess(entry.id);
+    document.querySelectorAll(`.module-nav-btn[data-module="${moduleName}"]`).forEach(b => b.classList.toggle('hidden', !show));
+  });
 }
 
 // Vista simple de un ítem tipo 'dropbox' (hoy: "Proyectos con Permiso"):
@@ -2433,25 +2448,12 @@ function renderPlanosNotesArea(entry, targetContainer) {
     planosNotesState.currentPageId = groups.find(g => g.items.length)?.items[0]?.id || null;
   }
 
-  // Ítems que antes vivían en el módulo "Planos" (aparte), ahora arriba de
-  // la lista de obras acá adentro — ver DROPBOX_LINKS/inObrasMenu.
-  const extraEntries = DROPBOX_LINKS.filter(e => e.inObrasMenu && userHasDropboxAccess(e.id));
-
   container.innerHTML = `
     <div class="municipal-sidebar">
       <div class="municipal-sidebar-header">
         <span>${escHtml(entry.name)}</span>
         <button class="btn-sm" id="municipal-sync-btn" title="Copiar obras nuevas de Reuniones">🔄</button>
       </div>
-      ${extraEntries.length === 0 ? '' : `
-        <div class="municipal-extra-list">
-          ${extraEntries.map(e => `
-            <div class="municipal-page-item municipal-extra-item${obrasState.extraId === e.id ? ' active' : ''}" data-extra-id="${e.id}">
-              ${e.icon} ${escHtml(e.name)}
-            </div>
-          `).join('')}
-        </div>
-      `}
       <div class="municipal-sections-list">
         ${groups.length === 0 ? '<div class="empty-state"><p>No hay secciones accesibles.</p></div>' : groups.map(g => `
           <div class="municipal-section-group">
@@ -2459,7 +2461,7 @@ function renderPlanosNotesArea(entry, targetContainer) {
             ${g.items.length === 0
               ? '<div class="municipal-section-empty">Sin obras copiadas todavía</div>'
               : g.items.map(it => `
-                <div class="municipal-page-item${!obrasState.extraId && it.id === planosNotesState.currentPageId ? ' active' : ''}" data-id="${it.id}">
+                <div class="municipal-page-item${it.id === planosNotesState.currentPageId ? ' active' : ''}" data-id="${it.id}">
                   ${escHtml(it.title || 'Sin título')}${(it.files || []).length ? ` <span class="municipal-file-count">📎${it.files.length}</span>` : ''}
                 </div>
               `).join('')}
@@ -2477,42 +2479,12 @@ function renderPlanosNotesArea(entry, targetContainer) {
     renderPlanosNotesArea(entry);
   });
 
-  container.querySelectorAll('.municipal-extra-item').forEach(el => {
+  container.querySelectorAll('.municipal-page-item').forEach(el => {
     el.addEventListener('click', () => {
-      obrasState.extraId = el.dataset.extraId;
-      renderPlanosNotesArea(entry);
-    });
-  });
-
-  container.querySelectorAll('.municipal-page-item:not(.municipal-extra-item)').forEach(el => {
-    el.addEventListener('click', () => {
-      obrasState.extraId = null;
       planosNotesState.currentPageId = el.dataset.id;
       renderPlanosNotesArea(entry);
     });
   });
-
-  renderObrasEditorPane();
-}
-
-// Panel derecho de "Obras": si hay un ítem extra elegido (Detalles
-// Constructivos, Normativas, Proyectos con Permiso), muestra ESO en vez
-// de la ficha de la obra seleccionada.
-function renderObrasEditorPane() {
-  const editorContainer = $('municipal-editor');
-  if (!editorContainer) return;
-
-  if (obrasState.extraId) {
-    const extra = DROPBOX_LINKS.find(e => e.id === obrasState.extraId);
-    if (extra?.type === 'library') {
-      renderPlanosLibraryArea(extra, editorContainer);
-      return;
-    }
-    if (extra) {
-      renderDropboxLinkView(editorContainer, extra);
-      return;
-    }
-  }
 
   renderPlanosNotesEditor();
 }
@@ -3353,6 +3325,17 @@ function renderAdminDropbox(users) {
   bindAdminDropboxButtons(users);
 }
 
+// Si el admin edita el link/accesos de una entrada de DROPBOX_LINKS
+// mientras esa entrada está abierta, refresca el módulo visible para
+// que el cambio se vea al toque sin recargar la página.
+function refreshActiveDropboxModule() {
+  if (DOM.obrasModule.classList.contains('active')) { loadObrasModule(); return; }
+  Object.keys(DOM.dropboxEntryAreas).forEach(id => {
+    const moduleEl = $(`${id}-module`);
+    if (moduleEl && moduleEl.classList.contains('active')) loadDropboxEntryModule(id);
+  });
+}
+
 function bindAdminDropboxButtons(users) {
   DOM.adminDropboxList.querySelectorAll('.js-save-dropbox-url').forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -3371,7 +3354,7 @@ function bindAdminDropboxButtons(users) {
         }, { merge: true });
         state.dropboxLinks[id] = { ...existing, name: entry.name, url };
         updateDropboxNavVisibility();
-        if (DOM.obrasModule.classList.contains('active')) loadObrasModule();
+        refreshActiveDropboxModule();
         toast('Enlace guardado', 'success');
       } catch (err) {
         toast('Error: ' + err.message, 'error');
@@ -3438,7 +3421,7 @@ function openManageDropboxAccessModal(entry, link, allUsers) {
       closeModal();
       loadAdminDropbox();
       updateDropboxNavVisibility();
-      if (DOM.obrasModule.classList.contains('active')) loadObrasModule();
+      refreshActiveDropboxModule();
       toast('Accesos actualizados', 'success');
     } catch (err) {
       toast('Error: ' + err.message, 'error');

@@ -568,7 +568,7 @@ input[type="date"] { -webkit-appearance: none; appearance: none; }
   display: flex; align-items: stretch; gap: 0;
   margin: 0 0 2px; max-width: 100%; overflow-x: auto;
   border: 1px solid var(--border); border-radius: var(--radius);
-  font-size: 11px;
+  font-size: 10px;
 }
 /* El <p><br></p> que separa una tarea de la siguiente: se achica a un
    respiro mínimo en vez del alto de línea normal, para que las tareas
@@ -576,7 +576,7 @@ input[type="date"] { -webkit-appearance: none; appearance: none; }
 #editor-content .task-item + p { margin: 0 0 2px; line-height: .4; }
 .task-checkbox { flex-shrink: 0; width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); align-self: center; margin: 0 0 0 10px; }
 .task-text {
-  flex: 1; min-width: 0; padding: 6px 6px; align-self: center; font-size: 11px;
+  flex: 1; min-width: 0; padding: 6px 6px; align-self: center; font-size: 10px;
   white-space: normal; overflow-wrap: break-word; line-height: 1.4;
 }
 .task-item[data-priority="media"] .task-text { color: var(--warning); }

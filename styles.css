@@ -1241,6 +1241,15 @@ input[type="date"] { -webkit-appearance: none; appearance: none; }
 
   html, body { height: auto; background: #fff; }
 
+  /* Sin esto Chrome/Edge no imprimen fondos ni colores por default (hay
+     que tildar "Gráficos de fondo" en el diálogo, cosa que nadie hace) —
+     se fuerza acá para que el rojo de ALTA, los tags de prioridad y el
+     punto de color de cada empresa salgan iguales a como se ven en
+     pantalla. */
+  #resumen-report, #resumen-report * {
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; color-adjust: exact;
+  }
+
   /* Hide everything except the active report */
   #module-sidebar,
   #bottom-nav,
@@ -1259,7 +1268,7 @@ input[type="date"] { -webkit-appearance: none; appearance: none; }
   #resumen-report-container { display: block !important; overflow: visible; }
 
   #resumen-report {
-    overflow: visible; padding: 0; color: #000;
+    overflow: visible; padding: 0;
   }
 
   .resumen-print-header { border-bottom-color: #000 !important; }

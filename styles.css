@@ -568,7 +568,7 @@ input[type="date"] { -webkit-appearance: none; appearance: none; }
   display: flex; align-items: stretch; gap: 0;
   margin: 0 0 2px; max-width: 100%; overflow-x: auto;
   border: 1px solid var(--border); border-radius: var(--radius);
-  font-size: 10px;
+  font-size: 9px;
 }
 /* El <p><br></p> que separa una tarea de la siguiente: se achica a un
    respiro mínimo en vez del alto de línea normal, para que las tareas
@@ -576,16 +576,16 @@ input[type="date"] { -webkit-appearance: none; appearance: none; }
 #editor-content .task-item + p { margin: 0 0 2px; line-height: .4; }
 .task-checkbox { flex-shrink: 0; width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); align-self: center; margin: 0 0 0 10px; }
 .task-text {
-  flex: 1; min-width: 0; padding: 6px 6px; align-self: center; font-size: 10px;
-  white-space: normal; overflow-wrap: break-word; line-height: 1.4;
+  flex: 1; min-width: 0; padding: 4px 6px; align-self: center; font-size: 9px;
+  white-space: normal; overflow-wrap: break-word; line-height: 1.3;
 }
 .task-item[data-priority="media"] .task-text { color: var(--warning); }
 .task-item[data-priority="alta"] .task-text { background: #fecaca; color: var(--text); font-weight: 600; }
 .task-item.task-done .task-text { text-decoration: line-through; color: var(--text-muted); background: none; font-weight: 400; }
 .task-encargado, .task-due-date {
   flex-shrink: 0; border: none;
-  background: transparent; font: inherit; font-size: 10px; color: var(--text);
-  padding: 6px 4px; outline: none;
+  background: transparent; font: inherit; font-size: 9px; color: var(--text);
+  padding: 4px 4px; outline: none;
 }
 .task-encargado { width: var(--task-encargado-w); border-left: 1px solid var(--border); }
 .task-encargado::placeholder { color: var(--text-muted); }
@@ -594,7 +594,7 @@ input[type="date"] { -webkit-appearance: none; appearance: none; }
 .task-encargado,
 .task-col-resize[data-col="encargado"] { display: none; }
 .task-due-date {
-  width: var(--task-due-date-w); min-width: 0; padding: 6px 2px; color: var(--text-muted);
+  width: var(--task-due-date-w); min-width: 0; padding: 4px 2px; color: var(--text-muted);
   -webkit-appearance: none; appearance: none;
 }
 .task-encargado:focus, .task-due-date:focus { background: var(--accent-light); color: var(--text); }

@@ -128,6 +128,7 @@ const DOM = {
   resumenEmailDatalist:  $('resumen-email-datalist'),
   resumenGmailBtn:       $('resumen-gmail-btn'),
   resumenEmailBtn:       $('resumen-email-btn'),
+  resumenPdfBtn:         $('resumen-pdf-btn'),
   // Obras (ex Antecedentes Municipales) y los ex-ítems de Planos, cada
   // uno su propio módulo del rail (ver DROPBOX_LINKS/renderDropboxRail).
   obrasModule:        $('obras-module'),
@@ -2187,10 +2188,14 @@ function buildResumenPlainText() {
   return lines.join('\n').trim();
 }
 
-// Arma asunto + cuerpo (texto plano, recortado — ni mailto ni el compose
-// de Gmail por URL soportan HTML o adjuntos) a partir del resumen actual.
-// Devuelve null si no hay nada para mandar.
-function buildResumenEmailPayload() {
+// Arma asunto + cuerpo (texto plano, recortado si hace falta — ni mailto
+// ni el compose de Gmail por URL soportan HTML o adjuntos) a partir del
+// resumen actual. `limit` es distinto según el canal: un mailto: lo abre
+// el programa de correo del sistema operativo y varios (Outlook sobre
+// todo) truncan o rechazan links largos bastante antes que una URL de
+// Gmail navegada normal en el navegador. Devuelve null si no hay nada
+// para mandar.
+function buildResumenEmailPayload(limit) {
   const isEncargadoMode = resumenState.mode === 'encargado';
   const subject = isEncargadoMode
     ? `Resumen de obras — ${resumenState.encargado}`
@@ -2201,9 +2206,8 @@ function buildResumenEmailPayload() {
     toast('No hay contenido en el resumen para enviar.', 'error');
     return null;
   }
-  const LIMIT = 3000; // los clientes de mail truncan o rechazan links muy largos
-  if (body.length > LIMIT) {
-    body = body.slice(0, LIMIT) + '\n\n(resumen recortado — usá "Imprimir" para verlo completo)';
+  if (body.length > limit) {
+    body = body.slice(0, limit) + '\n\n(resumen recortado por el largo del correo — usá "📄 PDF para adjuntar" para mandarlo completo, con colores)';
   }
   return { subject, body };
 }
@@ -2217,7 +2221,7 @@ function rememberResumenEmail(addr) {
 }
 
 DOM.resumenGmailBtn.addEventListener('click', () => {
-  const payload = buildResumenEmailPayload();
+  const payload = buildResumenEmailPayload(6000);
   if (!payload) return;
   const to = DOM.resumenEmailTo.value.trim();
   rememberResumenEmail(to);
@@ -2232,13 +2236,25 @@ DOM.resumenGmailBtn.addEventListener('click', () => {
 // solo — el usuario completa lo que falte y aprieta enviar desde su
 // propio programa de correo.
 DOM.resumenEmailBtn.addEventListener('click', () => {
-  const payload = buildResumenEmailPayload();
+  const payload = buildResumenEmailPayload(1800);
   if (!payload) return;
   const to = DOM.resumenEmailTo.value.trim();
   rememberResumenEmail(to);
 
   const mailto = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(payload.subject)}&body=${encodeURIComponent(payload.body)}`;
   window.location.href = mailto;
+});
+
+// "PDF para adjuntar": el resumen puede ser muy largo (varias páginas) y
+// un mail (mailto o Gmail) no soporta colores ni adjuntos por sí solo —
+// no hay forma de armar y adjuntar un PDF automáticamente desde acá por
+// seguridad del navegador. La salida más confiable e idéntica a la
+// pantalla es reusar el mismo diálogo de "Imprimir" (misma hoja de
+// estilos, colores incluidos) eligiendo "Guardar como PDF" en vez de una
+// impresora — el aviso le recuerda ese paso antes de abrirlo.
+DOM.resumenPdfBtn.addEventListener('click', () => {
+  toast('Se abre el diálogo de impresión: elegí "Guardar como PDF" en Destino, guardalo y adjuntalo en tu mail.', 'success');
+  window.print();
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -65,6 +65,7 @@ const DROPBOX_LINKS = [
   { id: 'antecedentes-municipales',  name: 'Obras',                     icon: '🏛️', type: 'notes' },
   { id: 'normativas',                name: 'Normativas',                icon: '📖', type: 'library' },
   { id: 'proyectos-permiso',         name: 'Proyectos con Permiso',     icon: '📋' },
+  { id: 'curriculum',                name: 'Currículum',                icon: '📄', type: 'library' },
 ];
 
 const OBRAS_ENTRY_ID = 'antecedentes-municipales';
@@ -2313,14 +2314,29 @@ DOM.resumenReport.addEventListener('click', e => {
 // Convierte el HTML de una entrada (párrafos sueltos + tareas ☑) a texto
 // plano prolijo — mailto: y el compose de Gmail no soportan HTML, así que
 // en vez de aplanar el DOM tal cual (que pierde toda la estructura y deja
-// todo pegado en una sola bolsa de texto), se arma línea por línea:
-// cada tarea con su viñeta y prioridad entre corchetes, aparte del resto.
+// todo pegado en una sola bolsa de texto), se arma línea por línea: cada
+// tarea con su viñeta y prioridad entre corchetes, aparte del resto.
+//
+// Recorre el árbol en vez de mirar solo los hijos directos: si una tarea
+// queda anidada adentro de otra cosa (una lista, un párrafo que la
+// envuelve — pasa con contenido pegado de otro lado), tomar el textContent
+// del contenedor entero traía el botón de prioridad y el × de borrar
+// pegados al texto, sin espacio ni separador. Bajando nivel por nivel
+// hasta encontrar cada .task-item, siempre se la formatea igual sin
+// importar la profundidad a la que haya quedado.
 function entryHtmlToPlainText(html) {
   const tmp = document.createElement('div');
   tmp.innerHTML = html;
   const lines = [];
-  tmp.childNodes.forEach(node => {
+
+  function walk(node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent.replace(/\s+/g, ' ').trim();
+      if (text) lines.push(`  ${text}`);
+      return;
+    }
     if (node.nodeType !== Node.ELEMENT_NODE) return;
+
     if (node.classList.contains('task-item')) {
       const text = node.querySelector('.task-text')?.textContent.trim();
       if (!text) return;
@@ -2330,11 +2346,18 @@ function entryHtmlToPlainText(html) {
       if (priority) line += ` [${priority}]`;
       if (due) line += ` (vence ${due})`;
       lines.push(line);
+      return;
+    }
+
+    if (node.querySelector('.task-item')) {
+      Array.from(node.childNodes).forEach(walk);
     } else {
       const text = node.textContent.replace(/\s+/g, ' ').trim();
       if (text) lines.push(`  ${text}`);
     }
-  });
+  }
+
+  Array.from(tmp.childNodes).forEach(walk);
   return lines.join('\n');
 }
 

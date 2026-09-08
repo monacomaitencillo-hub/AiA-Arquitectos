@@ -315,6 +315,7 @@ function initApp() {
   loadTaskColumnWidths();
   initTaskColumnResize();
   loadMunicipalNotesFontSize();
+  loadMunicipalNotesTextColor();
   initAntecedentesPanel();
   loadWiki();
   loadOptionLists();
@@ -823,6 +824,11 @@ function initEditorToolbar() {
         !e.target.closest('.municipal-notes-header')) {
       notesSizePopover.classList.add('hidden');
     }
+    const notesColorPopover = $('municipal-notes-color-popover');
+    if (notesColorPopover && !notesColorPopover.classList.contains('hidden') &&
+        !e.target.closest('.municipal-notes-header')) {
+      notesColorPopover.classList.add('hidden');
+    }
     if (!DOM.titleColorPopover.classList.contains('hidden') &&
         !e.target.closest('#title-color-btn') && !e.target.closest('#title-color-popover')) {
       DOM.titleColorPopover.classList.add('hidden');
@@ -1132,6 +1138,20 @@ function loadMunicipalNotesFontSize() {
 function saveMunicipalNotesFontSize(px) {
   document.documentElement.style.setProperty('--municipal-notes-font-size', px + 'px');
   localStorage.setItem(MUNICIPAL_NOTES_SIZE_KEY, String(px));
+}
+
+// Mismo mecanismo para el color de letra de las Notas de Obras.
+const MUNICIPAL_NOTES_COLOR_KEY = 'aia-municipal-notes-text-color';
+
+function loadMunicipalNotesTextColor() {
+  const color = localStorage.getItem(MUNICIPAL_NOTES_COLOR_KEY);
+  if (color) document.documentElement.style.setProperty('--municipal-notes-text-color', color);
+}
+
+function saveMunicipalNotesTextColor(color) {
+  document.documentElement.style.setProperty('--municipal-notes-text-color', color || 'var(--text)');
+  if (color) localStorage.setItem(MUNICIPAL_NOTES_COLOR_KEY, color);
+  else localStorage.removeItem(MUNICIPAL_NOTES_COLOR_KEY);
 }
 
 function saveTaskColumnWidth(col, widthPx) {
@@ -2780,6 +2800,22 @@ function renderPlanosNotesEditor() {
     <div class="municipal-notes-header">
       <span>Notas</span>
       <span style="display:flex;align-items:center;gap:6px;margin-left:auto">
+        <span class="toolbar-color-wrap">
+          <button class="toolbar-btn" id="municipal-notes-color-btn" type="button" title="Color de letra de las notas">
+            <span class="text-color-swatch-icon">A</span>
+          </button>
+          <div id="municipal-notes-color-popover" class="color-popover hidden">
+            <button type="button" class="color-swatch color-swatch-none" data-color="" title="Color por defecto"></button>
+            <button type="button" class="color-swatch" data-color="#e03131" style="background:#e03131" title="Rojo"></button>
+            <button type="button" class="color-swatch" data-color="#f08c00" style="background:#f08c00" title="Naranja"></button>
+            <button type="button" class="color-swatch" data-color="#f5c211" style="background:#f5c211" title="Amarillo"></button>
+            <button type="button" class="color-swatch" data-color="#2f9e44" style="background:#2f9e44" title="Verde"></button>
+            <button type="button" class="color-swatch" data-color="#1971c2" style="background:#1971c2" title="Azul"></button>
+            <button type="button" class="color-swatch" data-color="#7048e8" style="background:#7048e8" title="Violeta"></button>
+            <button type="button" class="color-swatch" data-color="#e64980" style="background:#e64980" title="Rosa"></button>
+            <button type="button" class="color-swatch" data-color="#1a1a1a" style="background:#1a1a1a" title="Negro"></button>
+          </div>
+        </span>
         <span class="toolbar-size-wrap">
           <button class="toolbar-btn" id="municipal-notes-size-btn" type="button" title="Tamaño de letra de las notas">Aa</button>
           <div id="municipal-notes-size-popover" class="size-popover hidden">
@@ -2841,6 +2877,19 @@ function renderPlanosNotesEditor() {
   bindCustomSizeInput(notesSizePopover, px => {
     saveMunicipalNotesFontSize(px);
     notesSizePopover.classList.add('hidden');
+  });
+
+  const notesColorBtn = $('municipal-notes-color-btn');
+  const notesColorPopover = $('municipal-notes-color-popover');
+  notesColorBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    notesColorPopover.classList.toggle('hidden');
+  });
+  notesColorPopover.querySelectorAll('.color-swatch').forEach(swatch => {
+    swatch.addEventListener('click', () => {
+      saveMunicipalNotesTextColor(swatch.dataset.color);
+      notesColorPopover.classList.add('hidden');
+    });
   });
 
   if (!canEdit) return;

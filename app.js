@@ -2187,20 +2187,29 @@ function buildResumenPlainText() {
   return lines.join('\n').trim();
 }
 
-// Arma asunto + cuerpo (texto plano completo, sin recortar — ni mailto
-// ni el compose de Gmail por URL soportan HTML o adjuntos, así que no
-// hay forma de mandar los mismos colores de la impresión por acá, pero
-// al menos sale entero). Devuelve null si no hay nada para mandar.
-function buildResumenEmailPayload() {
+// Arma asunto + cuerpo (texto plano — ni mailto ni el compose de Gmail
+// por URL soportan HTML o adjuntos, así que no hay forma de mandar los
+// mismos colores de la impresión por acá). `limit` recorta si hace
+// falta: el link de Gmail es una URL real contra su servidor y con un
+// resumen largo tira error 400 (URL demasiado larga) en vez de abrir
+// igual — no es algo que se pueda sacar, es un límite del lado de
+// Gmail. mailto: lo abre el programa de correo del sistema operativo,
+// que también trunca o falla con links muy largos (Outlook sobre todo),
+// así que lleva un tope más chico. Devuelve null si no hay nada para
+// mandar.
+function buildResumenEmailPayload(limit) {
   const isEncargadoMode = resumenState.mode === 'encargado';
   const subject = isEncargadoMode
     ? `Resumen de obras — ${resumenState.encargado}`
     : 'Resumen por empresa';
 
-  const body = buildResumenPlainText();
+  let body = buildResumenPlainText();
   if (!body) {
     toast('No hay contenido en el resumen para enviar.', 'error');
     return null;
+  }
+  if (body.length > limit) {
+    body = body.slice(0, limit) + '\n\n(resumen recortado por el largo del correo — para verlo completo, usá "Imprimir" o filtrá por encargado)';
   }
   return { subject, body };
 }
@@ -2214,7 +2223,7 @@ function rememberResumenEmail(addr) {
 }
 
 DOM.resumenGmailBtn.addEventListener('click', () => {
-  const payload = buildResumenEmailPayload();
+  const payload = buildResumenEmailPayload(4000);
   if (!payload) return;
   const to = DOM.resumenEmailTo.value.trim();
   rememberResumenEmail(to);
@@ -2229,7 +2238,7 @@ DOM.resumenGmailBtn.addEventListener('click', () => {
 // solo — el usuario completa lo que falte y aprieta enviar desde su
 // propio programa de correo.
 DOM.resumenEmailBtn.addEventListener('click', () => {
-  const payload = buildResumenEmailPayload();
+  const payload = buildResumenEmailPayload(1500);
   if (!payload) return;
   const to = DOM.resumenEmailTo.value.trim();
   rememberResumenEmail(to);

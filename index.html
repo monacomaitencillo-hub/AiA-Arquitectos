@@ -201,6 +201,38 @@
     }
     .service-desc { font-size: 14px; color: var(--muted); line-height: 1.65; }
 
+    /* ── GALERÍA ──────────────────────────────────────────────────────────── */
+    /* Espacio ya armado para las fotos de obra. Hoy son placeholders — para
+       poner una foto real, en cada .galeria-item se reemplaza el
+       <div class="galeria-placeholder">...</div> por:
+         <img src="ruta-o-url-de-la-foto.jpg" alt="Nombre de la obra">
+       (el <div class="galeria-item"> de afuera no se toca, ya tiene el
+       recorte 4:3 y el borde listos). */
+    #galeria { background: var(--light); color: var(--text); padding: 100px 48px; }
+    #galeria .section-title { margin-bottom: 44px; }
+    .galeria-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 18px;
+    }
+    .galeria-item {
+      aspect-ratio: 4 / 3; border-radius: 6px; overflow: hidden;
+      background: #fff; border: 1px solid rgba(0,0,0,.08);
+    }
+    .galeria-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .galeria-placeholder {
+      width: 100%; height: 100%;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+      background:
+        repeating-linear-gradient(135deg, rgba(0,0,0,.025) 0 14px, transparent 14px 28px),
+        var(--light);
+      color: rgba(0,0,0,.28);
+    }
+    .galeria-placeholder svg { width: 34px; height: 34px; opacity: .5; }
+    .galeria-placeholder span {
+      font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+    }
+
     /* ── NUMBERS ──────────────────────────────────────────────────────────── */
     #numeros {
       background: var(--navy);
@@ -385,7 +417,7 @@
       .nav-logo-names { display: none; }
       .nav-logo-title { font-size: 10px; }
       .hero-content { padding: 0 20px 60px; }
-      #servicios, #filosofia, #portal, #numeros, #proyectos { padding: 60px 20px; }
+      #servicios, #filosofia, #portal, #numeros, #proyectos, #galeria { padding: 60px 20px; }
       footer { padding: 32px 20px; }
       .scroll-hint { display: none; }
       .nav-right { gap: 10px; }
@@ -743,6 +775,54 @@
     </p>
     <div class="hero-btns">
       <a href="login.html" class="btn-gold">→ Ir al Portal</a>
+    </div>
+  </div>
+</section>
+
+<!-- ── GALERÍA ────────────────────────────────────────────────────────────── -->
+<!-- Espacio listo para las fotos de obra. Para cargar una real, en el
+     .galeria-item correspondiente se cambia el <div class="galeria-placeholder">
+     por <img src="ruta-o-url.jpg" alt="Nombre de la obra">. Se puede agregar
+     o sacar .galeria-item libremente, el grid se acomoda solo. -->
+<section id="galeria">
+  <p class="section-label">Proyectos</p>
+  <h2 class="section-title">Una mirada a nuestro trabajo</h2>
+  <div class="galeria-grid">
+    <div class="galeria-item">
+      <div class="galeria-placeholder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+        <span>Foto próximamente</span>
+      </div>
+    </div>
+    <div class="galeria-item">
+      <div class="galeria-placeholder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+        <span>Foto próximamente</span>
+      </div>
+    </div>
+    <div class="galeria-item">
+      <div class="galeria-placeholder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+        <span>Foto próximamente</span>
+      </div>
+    </div>
+    <div class="galeria-item">
+      <div class="galeria-placeholder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+        <span>Foto próximamente</span>
+      </div>
+    </div>
+    <div class="galeria-item">
+      <div class="galeria-placeholder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+        <span>Foto próximamente</span>
+      </div>
+    </div>
+    <div class="galeria-item">
+      <div class="galeria-placeholder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+        <span>Foto próximamente</span>
+      </div>
     </div>
   </div>
 </section>

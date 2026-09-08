@@ -2079,13 +2079,18 @@ function buildResumenData(filterEncargado) {
 
   const sectionGroups = Array.from(bySection.values());
   sectionGroups.forEach(g => {
-    // Fechadas primero, en orden cronológico; las sin fecha van al final,
-    // ordenadas por título de página.
+    // Primero se agrupa por obra (todo lo de "Velas del norte" junto,
+    // sin importar si es una tarea sin fecha o una visita con fecha de
+    // hoy) y recién adentro de cada obra se ordena por fecha — si no, una
+    // visita reciente terminaba lejos del resto de esa misma obra, mezclada
+    // por fecha con obras completamente distintas de la misma empresa.
     g.entries.sort((a, b) => {
-      if (a.date && b.date) return a.date - b.date || (a.page.title || '').localeCompare(b.page.title || '');
+      const pageCompare = (a.page.title || '').localeCompare(b.page.title || '', 'es');
+      if (pageCompare !== 0) return pageCompare;
+      if (a.date && b.date) return a.date - b.date;
       if (a.date) return -1;
       if (b.date) return 1;
-      return (a.page.title || '').localeCompare(b.page.title || '');
+      return 0;
     });
   });
   sectionGroups.sort((a, b) =>

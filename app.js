@@ -314,6 +314,7 @@ function initApp() {
   initEditorToolbar();
   loadTaskColumnWidths();
   initTaskColumnResize();
+  loadMunicipalNotesFontSize();
   initAntecedentesPanel();
   loadWiki();
   loadOptionLists();
@@ -813,6 +814,15 @@ function initEditorToolbar() {
         !e.target.closest('.toolbar-more-wrap')) {
       DOM.toolbarMorePopover.classList.add('hidden');
     }
+    // El popover de tamaño de letra de Notas (Obras) se recrea cada render
+    // del editor de esa obra, así que no tiene un DOM[...] fijo — se busca
+    // en vivo, y si no está montada esa pantalla simplemente no hay nada
+    // que cerrar.
+    const notesSizePopover = $('municipal-notes-size-popover');
+    if (notesSizePopover && !notesSizePopover.classList.contains('hidden') &&
+        !e.target.closest('.municipal-notes-header')) {
+      notesSizePopover.classList.add('hidden');
+    }
     if (!DOM.titleColorPopover.classList.contains('hidden') &&
         !e.target.closest('#title-color-btn') && !e.target.closest('#title-color-popover')) {
       DOM.titleColorPopover.classList.add('hidden');
@@ -1106,6 +1116,22 @@ function loadTaskColumnWidths() {
     const w = Number(saved[col]);
     if (w) document.documentElement.style.setProperty(varName, w + 'px');
   });
+}
+
+// Tamaño de letra de las Notas de Obras — como es un <textarea> plano (no
+// contenteditable como Reuniones), no hay selección para aplicarle un
+// tamaño a un pedazo: el botón "Aa" cambia el tamaño de todo el cuadro, y
+// se recuerda entre sesiones igual que el ancho de columnas de tareas.
+const MUNICIPAL_NOTES_SIZE_KEY = 'aia-municipal-notes-font-size';
+
+function loadMunicipalNotesFontSize() {
+  const px = Number(localStorage.getItem(MUNICIPAL_NOTES_SIZE_KEY));
+  if (px) document.documentElement.style.setProperty('--municipal-notes-font-size', px + 'px');
+}
+
+function saveMunicipalNotesFontSize(px) {
+  document.documentElement.style.setProperty('--municipal-notes-font-size', px + 'px');
+  localStorage.setItem(MUNICIPAL_NOTES_SIZE_KEY, String(px));
 }
 
 function saveTaskColumnWidth(col, widthPx) {
@@ -2753,7 +2779,22 @@ function renderPlanosNotesEditor() {
     </div>
     <div class="municipal-notes-header">
       <span>Notas</span>
-      ${canEdit ? '<button type="button" class="btn-sm" id="municipal-insert-date-btn">📅 Fecha</button>' : ''}
+      <span style="display:flex;align-items:center;gap:6px;margin-left:auto">
+        <span class="toolbar-size-wrap">
+          <button class="toolbar-btn" id="municipal-notes-size-btn" type="button" title="Tamaño de letra de las notas">Aa</button>
+          <div id="municipal-notes-size-popover" class="size-popover hidden">
+            <button type="button" class="size-option" data-size="10" style="font-size:10px">Pequeño</button>
+            <button type="button" class="size-option" data-size="12" style="font-size:12px">Normal</button>
+            <button type="button" class="size-option" data-size="15" style="font-size:15px">Grande</button>
+            <button type="button" class="size-option" data-size="18" style="font-size:18px">Muy grande</button>
+            <div class="size-custom-row">
+              <input type="number" class="size-custom-input" min="8" max="200" placeholder="Otro (px)" />
+              <button type="button" class="btn-sm size-custom-apply">Aplicar</button>
+            </div>
+          </div>
+        </span>
+        ${canEdit ? '<button type="button" class="btn-sm" id="municipal-insert-date-btn">📅 Fecha</button>' : ''}
+      </span>
     </div>
     <textarea id="municipal-notes" placeholder="Notas..." ${canEdit ? '' : 'disabled'}>${escHtml(item.notes || '')}</textarea>
     <div class="municipal-files">
@@ -2781,6 +2822,25 @@ function renderPlanosNotesEditor() {
       const f = item.files[parseInt(btn.dataset.index, 10)];
       if (f) openShareFileModal(f.name, f.url);
     });
+  });
+
+  // El tamaño de letra de las notas se puede cambiar aunque no se pueda
+  // editar (un viewer también puede querer leerlas más grandes).
+  const notesSizeBtn = $('municipal-notes-size-btn');
+  const notesSizePopover = $('municipal-notes-size-popover');
+  notesSizeBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    notesSizePopover.classList.toggle('hidden');
+  });
+  notesSizePopover.querySelectorAll('.size-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      saveMunicipalNotesFontSize(opt.dataset.size);
+      notesSizePopover.classList.add('hidden');
+    });
+  });
+  bindCustomSizeInput(notesSizePopover, px => {
+    saveMunicipalNotesFontSize(px);
+    notesSizePopover.classList.add('hidden');
   });
 
   if (!canEdit) return;

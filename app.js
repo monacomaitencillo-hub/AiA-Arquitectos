@@ -2115,7 +2115,7 @@ function renderResumen() {
       <div class="resumen-entry">
         <div class="resumen-entry-meta">
           ${e.dateLabel ? `<span class="resumen-entry-date">${escHtml(e.dateLabel)}</span>` : ''}
-          <span class="resumen-entry-page">${escHtml(e.page.title || 'Sin título')}</span>
+          <span class="resumen-entry-page"${e.page.titleColor ? ` style="color:${e.page.titleColor}"` : ''}>${escHtml(e.page.title || 'Sin título')}</span>
         </div>
         <div class="resumen-entry-body">${e.html}</div>
       </div>

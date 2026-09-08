@@ -30,6 +30,7 @@ const state = {
   userData:    null,   // Firestore /users/{uid} doc
   sections:    [],
   pages:       [],
+  planosVisitPages: [], // planosPages de "Obras" (parentId fijo) — solo para sacar sus .visitas y mostrarlas en el Resumen
   dropboxLinks: {},   // { [linkId]: { name, url, allowedUids } }
   currentPageId: null,
   autosaveTimer: null,
@@ -1957,12 +1958,22 @@ function splitPageIntoEntries(page) {
   return entries;
 }
 
+// Visitas registradas en el módulo Obras para una obra puntual (ver
+// addPlanosVisita) — se juntan las de todos los docs de planosPages cuyo
+// sourcePageId apunte a esta página de Reuniones (normalmente uno solo).
+function getPlanosVisitasForPage(pageId) {
+  return state.planosVisitPages
+    .filter(pp => pp.sourcePageId === pageId)
+    .flatMap(pp => pp.visitas || []);
+}
+
 // Groups every dated entry from every accessible section/page by empresa
 // (sección), sin importar el mes o la fecha — todo el historial junto.
 //
 // Una página puede tener varios bloques con fecha real (una por cada vez
 // que se usó "Insertar fecha"); cada uno cuenta como una entrada aparte,
-// ordenada cronológicamente dentro de su empresa.
+// ordenada cronológicamente dentro de su empresa. Las visitas a obra
+// (getPlanosVisitasForPage) se mezclan ahí mismo, por fecha.
 function buildResumenData(filterEncargado) {
   const sections = getAccessibleSections();
   const sectionById = Object.fromEntries(sections.map(s => [s.id, s]));
@@ -1979,12 +1990,24 @@ function buildResumenData(filterEncargado) {
       return;
     }
 
-    splitPageIntoEntries(page).forEach(seg => {
+    const pushEntry = seg => {
       if (!bySection.has(section.id)) {
         bySection.set(section.id, { section, entries: [] });
       }
-      bySection.get(section.id).entries.push({
-        page, date: seg.date, dateLabel: seg.dateLabel, html: seg.html,
+      bySection.get(section.id).entries.push(seg);
+    };
+
+    splitPageIntoEntries(page).forEach(seg => {
+      pushEntry({ page, date: seg.date, dateLabel: seg.dateLabel, html: seg.html });
+    });
+
+    // Visitas a obra (módulo Obras): un punto más, mezclado por fecha con
+    // el resto de las entradas de esa misma obra.
+    getPlanosVisitasForPage(page.id).forEach(v => {
+      const date = parseDateInputValue(v.date);
+      pushEntry({
+        page, date, dateLabel: formatDayLabel(date),
+        html: '<p class="resumen-visita-marker">📍 <strong>Visita</strong></p>',
       });
     });
   });
@@ -2009,12 +2032,14 @@ function buildResumenData(filterEncargado) {
 
 async function loadResumen() {
   try {
-    const [sectionsSnap, pagesSnap] = await Promise.all([
+    const [sectionsSnap, pagesSnap, visitPagesSnap] = await Promise.all([
       db.collection('sections').orderBy('createdAt').get(),
       db.collection('pages').orderBy('order').get(),
+      db.collection('planosPages').where('parentId', '==', OBRAS_ENTRY_ID).get(),
     ]);
     state.sections = sectionsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     state.pages    = pagesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    state.planosVisitPages = visitPagesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch (err) {
     console.error('loadResumen error:', err);
     toast('Error al cargar el resumen: ' + err.message, 'error');
@@ -2572,8 +2597,26 @@ function renderPlanosNotesEditor() {
     return;
   }
 
+  const visitas = [...(item.visitas || [])].sort((a, b) => b.date.localeCompare(a.date));
+
   editor.innerHTML = `
     <div class="municipal-editor-title">${escHtml(item.title || 'Sin título')}</div>
+    <div class="municipal-visitas">
+      <div class="municipal-visitas-header">
+        <span>Visitas a obra</span>
+        ${canEdit ? '<button type="button" class="btn-sm primary" id="municipal-add-visita-btn">📍 + Visita</button>' : ''}
+      </div>
+      ${visitas.length === 0
+        ? '<p class="ant-empty-hint">Sin visitas registradas</p>'
+        : `<div class="municipal-visitas-list">
+            ${visitas.map(v => `
+              <span class="municipal-visita-tag" data-id="${v.id}">
+                📍 ${escHtml(formatDDMMYYYY(v.date))}
+                ${canEdit ? `<button type="button" class="municipal-visita-remove" data-id="${v.id}" title="Eliminar">×</button>` : ''}
+              </span>
+            `).join('')}
+          </div>`}
+    </div>
     <div class="municipal-notes-header">
       <span>Notas</span>
       ${canEdit ? '<button type="button" class="btn-sm" id="municipal-insert-date-btn">📅 Fecha</button>' : ''}
@@ -2607,6 +2650,15 @@ function renderPlanosNotesEditor() {
   });
 
   if (!canEdit) return;
+
+  $('municipal-add-visita-btn')?.addEventListener('click', () => addPlanosVisita(item.id));
+
+  editor.querySelectorAll('.municipal-visita-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const visita = (item.visitas || []).find(v => v.id === btn.dataset.id);
+      if (visita) deletePlanosVisita(item.id, visita);
+    });
+  });
 
   const notesEl = $('municipal-notes');
   notesEl.addEventListener('input', () => {
@@ -2821,6 +2873,49 @@ async function deletePlanosNotesFile(pageId, index) {
   } catch (err) {
     console.error('deletePlanosNotesFile error:', err);
     toast('Error al eliminar el archivo: ' + err.message, 'error');
+  }
+}
+
+function formatDDMMYYYY(dateStr) {
+  const [y, m, d] = dateStr.split('-');
+  return `${d}-${m}-${y}`;
+}
+
+// Registra una visita a obra con la fecha de hoy — se guarda en el mismo
+// doc de planosPages (ver DROPBOX_LINKS/OBRAS_ENTRY_ID) y de ahí el
+// Resumen la saca junto con sus tareas y notas (sourcePageId → page.id,
+// ver getPlanosVisitasForPage en la sección de Resumen).
+async function addPlanosVisita(pageId) {
+  const item = planosNotesState.items.find(it => it.id === pageId);
+  if (!item) return;
+  const visita = { id: `${Date.now()}`, date: todayInputValue() };
+  try {
+    await db.collection('planosPages').doc(pageId).update({
+      visitas: firebase.firestore.FieldValue.arrayUnion(visita),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    item.visitas = [...(item.visitas || []), visita];
+    renderPlanosNotesEditor();
+    toast('Visita registrada.', 'success');
+  } catch (err) {
+    console.error('addPlanosVisita error:', err);
+    toast('Error al registrar la visita: ' + err.message, 'error');
+  }
+}
+
+async function deletePlanosVisita(pageId, visita) {
+  const item = planosNotesState.items.find(it => it.id === pageId);
+  if (!item) return;
+  try {
+    await db.collection('planosPages').doc(pageId).update({
+      visitas: firebase.firestore.FieldValue.arrayRemove(visita),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    item.visitas = (item.visitas || []).filter(v => v.id !== visita.id);
+    renderPlanosNotesEditor();
+  } catch (err) {
+    console.error('deletePlanosVisita error:', err);
+    toast('Error al eliminar la visita: ' + err.message, 'error');
   }
 }
 

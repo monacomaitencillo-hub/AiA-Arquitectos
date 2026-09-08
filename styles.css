@@ -732,6 +732,9 @@ input[type="date"] { -webkit-appearance: none; appearance: none; }
 .resumen-entry-body h3 { font-size: 14px; font-weight: 600; margin: 8px 0 4px; }
 .resumen-entry-body p { margin: 0 0 7px; }
 .resumen-entry-body p:last-child { margin-bottom: 0; }
+/* Punto "Visita" agregado desde el módulo Obras (ver getPlanosVisitasForPage
+   en app.js) — mismo color de acento que el tag de una visita ahí. */
+.resumen-visita-marker { color: var(--accent); }
 /* Same squeeze as #editor-content .task-item + p (styles.css ~line 489):
    the empty <p><br></p> the editor leaves between task rows must collapse
    here too, or it keeps its full line-height and reopens the gap. */
@@ -784,6 +787,22 @@ input[type="date"] { -webkit-appearance: none; appearance: none; }
 
 .municipal-editor { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 20px 28px; overflow-y: auto; }
 .municipal-editor-title { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 12px; }
+.municipal-visitas { flex-shrink: 0; margin-bottom: 16px; }
+.municipal-visitas-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px; font-size: 13px; font-weight: 600; color: var(--text);
+}
+.municipal-visitas-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.municipal-visita-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 4px 4px 10px; border-radius: 99px; font-size: 12px; font-weight: 600;
+  background: var(--accent-light); color: var(--accent);
+}
+.municipal-visita-remove {
+  border: none; background: transparent; color: inherit; opacity: .6;
+  font-size: 13px; line-height: 1; cursor: pointer; padding: 2px 4px;
+}
+.municipal-visita-remove:hover { opacity: 1; }
 #municipal-notes {
   width: 100%; flex: 1; min-height: 60vh; resize: vertical;
   border: 1px solid var(--border); border-radius: var(--radius);

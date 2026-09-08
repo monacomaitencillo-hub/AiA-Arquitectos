@@ -1238,6 +1238,15 @@ input[type="date"] { -webkit-appearance: none; appearance: none; }
 
   #antecedentes-panel { padding: 10px 16px 14px; }
   #antecedentes-grid { gap: 10px; }
+  #antecedentes-toggle { padding: 6px 0; }
+  #antecedentes-summary { font-size: 12px; }
+
+  /* Los acordeones de Resumen (por empresa) y Obras (por sección) son la
+     forma principal de moverse entre obras en el celular — el renglón
+     completo ya es clickeable, pero se agranda el alto para no tener que
+     apuntar con precisión de mouse. */
+  .resumen-section-title { padding: 10px 0; }
+  .municipal-section-name { padding: 10px 8px; }
 
   /* Zonas táctiles más grandes: a este tamaño de letra alcanza el dedo
      de sobra en desktop, pero en el celular cuesta pegarle. */

@@ -2071,8 +2071,8 @@ function buildResumenData(filterEncargado) {
         ? `<p class="resumen-visita-notes">${escHtml(v.notes).replace(/\n/g, '<br>')}</p>`
         : '';
       pushEntry({
-        page, date, dateLabel: formatDayLabel(date),
-        html: `<p class="resumen-visita-marker">📍 <strong>Visita</strong></p>${notesHtml}`,
+        page, date, dateLabel: formatDayLabel(date), isVisita: true,
+        html: notesHtml,
       });
     });
   });
@@ -2179,10 +2179,11 @@ function renderResumen() {
     const entriesHtml = entries.map(e => `
       <div class="resumen-entry">
         <div class="resumen-entry-meta">
-          ${e.dateLabel ? `<span class="resumen-entry-date">${escHtml(e.dateLabel)}</span>` : ''}
           <span class="resumen-entry-page"${e.page.titleColor ? ` style="color:${e.page.titleColor}"` : ''}>${escHtml(e.page.title || 'Sin título')}</span>
+          ${e.dateLabel ? `<span class="resumen-entry-date">${escHtml(e.dateLabel)}</span>` : ''}
+          ${e.isVisita ? `<span class="resumen-visita-marker">📍 Visita</span>` : ''}
         </div>
-        <div class="resumen-entry-body">${e.html}</div>
+        ${e.html ? `<div class="resumen-entry-body">${e.html}</div>` : ''}
       </div>
     `).join('');
 
@@ -2303,7 +2304,7 @@ function buildResumenPlainText() {
     lines.push('='.repeat(40));
     entries.forEach(e => {
       lines.push('');
-      lines.push([e.page.title || 'Sin título', e.dateLabel].filter(Boolean).join(' — '));
+      lines.push([e.page.title || 'Sin título', e.dateLabel, e.isVisita ? '📍 Visita' : null].filter(Boolean).join(' — '));
       const body = entryHtmlToPlainText(e.html);
       if (body) lines.push(body);
     });

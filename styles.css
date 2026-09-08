@@ -527,6 +527,16 @@ input[type="date"] { -webkit-appearance: none; appearance: none; }
     var(--bg);
 }
 .toolbar-size-wrap { position: relative; display: inline-flex; }
+.toolbar-more-wrap { position: relative; display: inline-flex; }
+.toolbar-more-popover {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 20; min-width: 170px;
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 6px; border-radius: 8px;
+  background: var(--bg); border: 1px solid var(--border);
+  box-shadow: 0 4px 16px rgba(0,0,0,.15);
+}
+.toolbar-more-popover.hidden { display: none; }
+.toolbar-more-popover .toolbar-btn { width: 100%; text-align: left; padding: 6px 10px; }
 .size-popover {
   position: absolute; top: calc(100% + 6px); left: 0; z-index: 20;
   display: flex; flex-direction: column; gap: 2px;

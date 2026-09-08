@@ -102,6 +102,8 @@ const DOM = {
   textColorSwatch:   $('text-color-swatch'),
   fontSizeBtn:       $('font-size-btn'),
   fontSizePopover:   $('font-size-popover'),
+  toolbarMoreBtn:      $('toolbar-more-btn'),
+  toolbarMorePopover:  $('toolbar-more-popover'),
   titleColorBtn:     $('title-color-btn'),
   titleColorPopover: $('title-color-popover'),
   titleColorSwatch:  $('title-color-swatch'),
@@ -748,6 +750,11 @@ function initEditorToolbar() {
         return;
       }
 
+      if (btn.id === 'toolbar-more-btn') {
+        DOM.toolbarMorePopover.classList.toggle('hidden');
+        return;
+      }
+
       const cmd = btn.dataset.cmd;
       const val = btn.dataset.val || null;
 
@@ -760,6 +767,10 @@ function initEditorToolbar() {
         document.execCommand(cmd, false, null);
       }
       DOM.editorContent.focus();
+      // Título/Párrafo/Enlace/Separador viven en el menú "Más": elegir
+      // cualquiera de esos lo cierra, en vez de dejarlo abierto tapando
+      // el editor.
+      if (btn.closest('#toolbar-more-popover')) DOM.toolbarMorePopover.classList.add('hidden');
     });
   });
 
@@ -797,6 +808,10 @@ function initEditorToolbar() {
     if (!DOM.fontSizePopover.classList.contains('hidden') &&
         !e.target.closest('.toolbar-size-wrap')) {
       DOM.fontSizePopover.classList.add('hidden');
+    }
+    if (!DOM.toolbarMorePopover.classList.contains('hidden') &&
+        !e.target.closest('.toolbar-more-wrap')) {
+      DOM.toolbarMorePopover.classList.add('hidden');
     }
     if (!DOM.titleColorPopover.classList.contains('hidden') &&
         !e.target.closest('#title-color-btn') && !e.target.closest('#title-color-popover')) {

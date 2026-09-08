@@ -226,11 +226,6 @@
                 </div>
               </span>
               <span class="toolbar-sep"></span>
-              <button class="toolbar-btn" data-cmd="formatBlock" data-val="h1" title="Título 1">H1</button>
-              <button class="toolbar-btn" data-cmd="formatBlock" data-val="h2" title="Título 2">H2</button>
-              <button class="toolbar-btn" data-cmd="formatBlock" data-val="h3" title="Título 3">H3</button>
-              <button class="toolbar-btn" data-cmd="formatBlock" data-val="p" title="Párrafo">¶</button>
-              <span class="toolbar-sep"></span>
               <button class="toolbar-btn" data-cmd="insertUnorderedList" title="Lista con viñetas">• Lista</button>
               <button class="toolbar-btn" data-cmd="insertOrderedList" title="Lista numerada">1. Lista</button>
               <button class="toolbar-btn" id="insert-date-btn" title="Insertar nueva fecha con calendario">📅 Fecha</button>
@@ -238,8 +233,17 @@
               <button class="toolbar-btn" id="delete-task-btn" title="Eliminar la tarea donde está el cursor">🗑️ Eliminar</button>
               <button class="toolbar-btn" id="undo-btn" title="Deshacer el último cambio (Ctrl+Z)">↩️ Deshacer</button>
               <span class="toolbar-sep"></span>
-              <button class="toolbar-btn" data-cmd="createLink" title="Insertar enlace">🔗</button>
-              <button class="toolbar-btn" data-cmd="insertHorizontalRule" title="Separador horizontal">—</button>
+              <span class="toolbar-more-wrap">
+                <button class="toolbar-btn" id="toolbar-more-btn" type="button" title="Más opciones">⋯ Más</button>
+                <div id="toolbar-more-popover" class="toolbar-more-popover hidden">
+                  <button class="toolbar-btn" data-cmd="formatBlock" data-val="h1" title="Título 1">H1 — Título 1</button>
+                  <button class="toolbar-btn" data-cmd="formatBlock" data-val="h2" title="Título 2">H2 — Título 2</button>
+                  <button class="toolbar-btn" data-cmd="formatBlock" data-val="h3" title="Título 3">H3 — Título 3</button>
+                  <button class="toolbar-btn" data-cmd="formatBlock" data-val="p" title="Párrafo">¶ Párrafo</button>
+                  <button class="toolbar-btn" data-cmd="createLink" title="Insertar enlace">🔗 Enlace</button>
+                  <button class="toolbar-btn" data-cmd="insertHorizontalRule" title="Separador horizontal">— Separador</button>
+                </div>
+              </span>
             </div>
 
             <div

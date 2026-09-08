@@ -146,8 +146,12 @@
             </div>
 
             <div id="antecedentes-panel">
-              <div id="antecedentes-title">Antecedentes</div>
-              <div id="antecedentes-grid">
+              <button type="button" id="antecedentes-toggle">
+                <span id="antecedentes-title">Antecedentes</span>
+                <span id="antecedentes-summary"></span>
+                <span id="antecedentes-chevron">▾</span>
+              </button>
+              <div id="antecedentes-grid" class="hidden">
 
                 <div class="ant-field">
                   <label>Comuna</label>
@@ -280,9 +284,14 @@
               <div class="resumen-toolbar-actions">
                 <input type="email" id="resumen-email-to" placeholder="Para: destinatario@..." list="resumen-email-datalist" autocomplete="off" />
                 <datalist id="resumen-email-datalist"></datalist>
-                <button class="btn-sm" id="resumen-gmail-btn">📧 Gmail</button>
-                <button class="btn-sm" id="resumen-email-btn">✉️ Otro correo</button>
-                <button class="btn-sm primary" id="resumen-print-btn">🖨️ Imprimir</button>
+                <span class="resumen-send-wrap">
+                  <button type="button" class="btn-sm primary" id="resumen-send-btn">Enviar ▾</button>
+                  <div id="resumen-send-popover" class="resumen-send-popover hidden">
+                    <button class="btn-sm" id="resumen-gmail-btn">📧 Gmail</button>
+                    <button class="btn-sm" id="resumen-email-btn">✉️ Otro correo</button>
+                    <button class="btn-sm" id="resumen-print-btn">🖨️ Imprimir</button>
+                  </div>
+                </span>
               </div>
             </div>
 

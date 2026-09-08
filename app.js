@@ -110,6 +110,10 @@ const DOM = {
   // Antecedentes
   antUnidades:       $('ant-unidades'),
   antM2Total:        $('ant-m2total'),
+  antecedentesPanel:   $('antecedentes-panel'),
+  antecedentesToggle:  $('antecedentes-toggle'),
+  antecedentesSummary: $('antecedentes-summary'),
+  antecedentesGrid:    $('antecedentes-grid'),
   antComunaField:      $('ant-comuna-field'),
   antRevisorField:     $('ant-revisor-field'),
   antCalculistaField:  $('ant-calculista-field'),
@@ -129,6 +133,8 @@ const DOM = {
   resumenEmailDatalist:  $('resumen-email-datalist'),
   resumenGmailBtn:       $('resumen-gmail-btn'),
   resumenEmailBtn:       $('resumen-email-btn'),
+  resumenSendBtn:        $('resumen-send-btn'),
+  resumenSendPopover:    $('resumen-send-popover'),
   // Obras (ex Antecedentes Municipales) y los ex-ítems de Planos, cada
   // uno su propio módulo del rail (ver DROPBOX_LINKS/renderDropboxRail).
   obrasModule:        $('obras-module'),
@@ -1360,9 +1366,39 @@ function antFieldOptions(field) {
   return Array.from(all).sort((a, b) => a.localeCompare(b, 'es'));
 }
 
+// Plegado por defecto (ver setAntecedentesExpanded) — la ficha entera
+// empujaba las tareas bien abajo en cada página, sobre todo en el celular.
+// Se recuerda el último estado elegido durante la sesión (no se vuelve a
+// cerrar solo con cada página), pero arranca cerrada al abrir la app.
+let antecedentesExpanded = false;
+
+function setAntecedentesExpanded(expanded) {
+  antecedentesExpanded = expanded;
+  DOM.antecedentesGrid.classList.toggle('hidden', !expanded);
+  DOM.antecedentesToggle.classList.toggle('expanded', expanded);
+}
+
+// Línea de resumen que se ve con la ficha cerrada, para no perder de vista
+// lo cargado (comuna, unidades, m², revisor/calculista/encargados) sin
+// tener que abrirla.
+function buildAntecedentesSummary() {
+  const a = state.antecedentes;
+  const parts = [];
+  if (a.comuna) parts.push(a.comuna);
+  if (a.unidades) parts.push(`${a.unidades} unid.`);
+  if (a.m2Total) parts.push(`${a.m2Total} m²`);
+  if (a.revisorArquitectura?.length) parts.push(`Revisor: ${a.revisorArquitectura.join(', ')}`);
+  if (a.calculista?.length) parts.push(`Calculista: ${a.calculista.join(', ')}`);
+  if (a.encargados?.length) parts.push(`Encargados: ${a.encargados.join(', ')}`);
+  return parts.length ? parts.join(' · ') : 'Sin datos cargados';
+}
+
 function renderAntecedentesPanel(canEdit) {
   const a = state.antecedentes;
   antCanEdit = canEdit;
+
+  DOM.antecedentesSummary.textContent = buildAntecedentesSummary();
+  setAntecedentesExpanded(antecedentesExpanded);
 
   DOM.antUnidades.value = a.unidades ?? '';
   DOM.antUnidades.disabled = !canEdit;
@@ -1535,6 +1571,10 @@ function saveAntecedentesNow() {
 }
 
 function initAntecedentesPanel() {
+  DOM.antecedentesToggle.addEventListener('click', () => {
+    setAntecedentesExpanded(!antecedentesExpanded);
+  });
+
   DOM.antUnidades.addEventListener('input', () => {
     const v = DOM.antUnidades.value;
     state.antecedentes.unidades = v === '' ? null : Number(v);
@@ -1848,6 +1888,11 @@ const resumenState = {
   encargado: '',       // nombre elegido cuando mode === 'encargado'
 };
 
+// Qué secciones (empresas) están desplegadas en el Resumen — por sectionId,
+// se recuerda entre renders (cambiar de filtro no las vuelve a cerrar).
+// Todas arrancan plegadas: ver renderResumen.
+const resumenSectionExpanded = {};
+
 // Clave "AAAA-MM-DD" en hora LOCAL (no usar toISOString: en husos horarios
 // adelantados a UTC corre la fecha un día para atrás).
 function dateKey(d) {
@@ -2126,13 +2171,20 @@ function renderResumen() {
       </div>
     `).join('');
 
+    // Plegada por defecto (ver resumenSectionExpanded más abajo) — con
+    // muchas empresas cargadas, tenerlas todas abiertas de entrada obliga
+    // a scrollear todo para llegar a la de abajo. Al imprimir se fuerzan
+    // todas abiertas por CSS (@media print), sin importar este estado.
+    const isExpanded = !!resumenSectionExpanded[section.id];
     return `
       <div class="resumen-section-block">
-        <h3 class="resumen-section-title" style="border-color:${section.color || '#1a1a1a'}">
+        <button type="button" class="resumen-section-title${isExpanded ? ' expanded' : ''}" data-section-id="${section.id}" style="border-color:${section.color || '#1a1a1a'}">
           <span class="resumen-section-dot" style="background:${section.color || '#1a1a1a'}"></span>
-          ${escHtml(section.name)}
-        </h3>
-        ${entriesHtml}
+          <span class="resumen-section-name">${escHtml(section.name)}</span>
+          <span class="resumen-section-count">${entries.length}</span>
+          <span class="resumen-section-chevron">▾</span>
+        </button>
+        <div class="resumen-section-entries${isExpanded ? '' : ' hidden'}">${entriesHtml}</div>
       </div>
     `;
   }).join('');
@@ -2160,6 +2212,35 @@ DOM.resumenFilterEncargado.addEventListener('change', () => {
 
 DOM.resumenPrintBtn.addEventListener('click', () => {
   window.print();
+});
+
+// Gmail/Otro correo/Imprimir vivían como 3 botones sueltos en la barra,
+// compitiendo con el filtro y el campo de destinatario. Se agrupan bajo
+// un solo "Enviar ▾" — cualquier click adentro del menú lo cierra solo.
+DOM.resumenSendBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  DOM.resumenSendPopover.classList.toggle('hidden');
+});
+DOM.resumenSendPopover.addEventListener('click', () => {
+  DOM.resumenSendPopover.classList.add('hidden');
+});
+document.addEventListener('click', e => {
+  if (!DOM.resumenSendPopover.classList.contains('hidden') && !e.target.closest('.resumen-send-wrap')) {
+    DOM.resumenSendPopover.classList.add('hidden');
+  }
+});
+
+// Plegar/desplegar una empresa del Resumen. Delegado sobre el contenedor
+// (no cada título) porque renderResumen() rearma todo el HTML de adentro
+// en cada filtro/refresco.
+DOM.resumenReport.addEventListener('click', e => {
+  const btn = e.target.closest('.resumen-section-title');
+  if (!btn) return;
+  const id = btn.dataset.sectionId;
+  const expanded = !resumenSectionExpanded[id];
+  resumenSectionExpanded[id] = expanded;
+  btn.classList.toggle('expanded', expanded);
+  btn.nextElementSibling.classList.toggle('hidden', !expanded);
 });
 
 // Convierte el HTML de una entrada (párrafos sueltos + tareas ☑) a texto

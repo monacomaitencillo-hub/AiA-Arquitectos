@@ -2713,6 +2713,7 @@ function renderPlanosNotesArea(entry, targetContainer) {
     return;
   }
 
+  const canEdit = state.userData.role !== 'viewer';
   const groups = planosNotesState.sections.map(section => ({
     section,
     items: planosNotesState.items.filter(it => it.sectionId === section.id)
@@ -2750,9 +2751,14 @@ function renderPlanosNotesArea(entry, targetContainer) {
                 ? '<div class="municipal-section-empty">Sin obras copiadas todavía</div>'
                 : g.items.map(it => `
                   <div class="municipal-page-item${it.id === planosNotesState.currentPageId ? ' active' : ''}" data-id="${it.id}">
-                    ${escHtml(it.title || 'Sin título')}${(it.files || []).length ? ` <span class="municipal-file-count">📎${it.files.length}</span>` : ''}
+                    <span class="municipal-page-item-name">${escHtml(it.title || 'Sin título')}${(it.files || []).length ? ` <span class="municipal-file-count">📎${it.files.length}</span>` : ''}</span>
+                    ${canEdit ? `
+                      <button type="button" class="municipal-page-edit" data-id="${it.id}" title="Renombrar">✎</button>
+                      <button type="button" class="municipal-page-delete" data-id="${it.id}" title="Eliminar de Obras">×</button>
+                    ` : ''}
                   </div>
                 `).join('')}
+              ${canEdit ? `<button type="button" class="add-page-btn municipal-add-page-btn" data-section-id="${g.section.id}">+ Agregar obra</button>` : ''}
             </div>
           </div>
         `;
@@ -2786,7 +2792,98 @@ function renderPlanosNotesArea(entry, targetContainer) {
     });
   });
 
+  container.querySelectorAll('.municipal-page-edit').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      renamePlanosPage(entry, btn.dataset.id);
+    });
+  });
+
+  container.querySelectorAll('.municipal-page-delete').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      deletePlanosPage(entry, btn.dataset.id);
+    });
+  });
+
+  container.querySelectorAll('.municipal-add-page-btn').forEach(btn => {
+    btn.addEventListener('click', () => addPlanosPage(entry, btn.dataset.sectionId));
+  });
+
   renderPlanosNotesEditor();
+}
+
+// El "🔄" solo copia obras nuevas de Reuniones, pero Resumen no siempre
+// coincide 1 a 1 con lo que hay acá (una obra puede existir en Reuniones
+// sin haberse sincronizado todavía, o necesitar un nombre distinto solo
+// de este lado) — estas tres dejan manejar la lista de obras de Obras
+// directamente, sin depender de esa sincronización.
+async function addPlanosPage(entry, sectionId) {
+  const title = (prompt('Nombre de la obra:') || '').trim();
+  if (!title) return;
+  try {
+    const ref = db.collection('planosPages').doc();
+    const data = {
+      parentId: entry.id, sectionId, sourcePageId: null,
+      title, notes: '', antecedentes: null, files: [], visitas: [],
+      order: planosNotesState.items.filter(it => it.sectionId === sectionId).length,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    };
+    await ref.set(data);
+    planosNotesState.items.push({ id: ref.id, ...data });
+    planosNotesState.currentPageId = ref.id;
+    renderPlanosNotesArea(entry);
+  } catch (err) {
+    console.error('addPlanosPage error:', err);
+    toast('Error al agregar la obra: ' + err.message, 'error');
+  }
+}
+
+async function renamePlanosPage(entry, pageId) {
+  const item = planosNotesState.items.find(it => it.id === pageId);
+  if (!item) return;
+  const title = (prompt('Nuevo nombre de la obra:', item.title || '') || '').trim();
+  if (!title || title === item.title) return;
+  try {
+    await db.collection('planosPages').doc(pageId).update({
+      title, updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    item.title = title;
+    renderPlanosNotesArea(entry);
+  } catch (err) {
+    console.error('renamePlanosPage error:', err);
+    toast('Error al renombrar: ' + err.message, 'error');
+  }
+}
+
+function deletePlanosPage(entry, pageId) {
+  const item = planosNotesState.items.find(it => it.id === pageId);
+  if (!item) return;
+
+  openModal({
+    title: 'Eliminar obra',
+    body: `<p>¿Eliminar <strong>${escHtml(item.title || 'Sin título')}</strong> de Obras? Se pierden sus notas, visitas y archivos cargados acá — no borra la página de Reuniones si vino sincronizada de ahí. Esta acción no se puede deshacer.</p>`,
+    footer: `
+      <button class="btn-sm" id="m-cancel-btn">Cancelar</button>
+      <button class="btn-sm danger" id="m-confirm-btn">Eliminar</button>
+    `,
+  });
+
+  $('m-cancel-btn').addEventListener('click', closeModal);
+  $('m-confirm-btn').addEventListener('click', async () => {
+    try {
+      await Promise.all((item.files || []).filter(f => f.path).map(f => storage.ref(f.path).delete().catch(() => {})));
+      await db.collection('planosPages').doc(pageId).delete();
+      planosNotesState.items = planosNotesState.items.filter(it => it.id !== pageId);
+      if (planosNotesState.currentPageId === pageId) planosNotesState.currentPageId = null;
+      closeModal();
+      renderPlanosNotesArea(entry);
+    } catch (err) {
+      console.error('deletePlanosPage error:', err);
+      toast('Error al eliminar la obra: ' + err.message, 'error');
+    }
+  });
 }
 
 function renderPlanosNotesEditor() {

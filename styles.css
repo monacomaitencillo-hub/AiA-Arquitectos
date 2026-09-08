@@ -735,6 +735,7 @@ input[type="date"] { -webkit-appearance: none; appearance: none; }
 /* Punto "Visita" agregado desde el módulo Obras (ver getPlanosVisitasForPage
    en app.js) — mismo color de acento que el tag de una visita ahí. */
 .resumen-visita-marker { color: var(--accent); }
+.resumen-visita-notes { color: var(--text-muted); font-size: 13px; }
 /* Same squeeze as #editor-content .task-item + p (styles.css ~line 489):
    the empty <p><br></p> the editor leaves between task rows must collapse
    here too, or it keeps its full line-height and reopens the gap. */

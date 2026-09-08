@@ -1964,7 +1964,7 @@ function splitPageIntoEntries(page) {
 function getPlanosVisitasForPage(pageId) {
   return state.planosVisitPages
     .filter(pp => pp.sourcePageId === pageId)
-    .flatMap(pp => pp.visitas || []);
+    .flatMap(pp => (pp.visitas || []).map(v => ({ ...v, notes: pp.notes || '' })));
 }
 
 // Groups every dated entry from every accessible section/page by empresa
@@ -2002,12 +2002,17 @@ function buildResumenData(filterEncargado) {
     });
 
     // Visitas a obra (módulo Obras): un punto más, mezclado por fecha con
-    // el resto de las entradas de esa misma obra.
+    // el resto de las entradas de esa misma obra. Las notas de esa obra
+    // (mismo campo para toda la obra, no una por visita) se muestran junto
+    // a cada visita para dar contexto de qué se vio ese día.
     getPlanosVisitasForPage(page.id).forEach(v => {
       const date = parseDateInputValue(v.date);
+      const notesHtml = v.notes && v.notes.trim()
+        ? `<p class="resumen-visita-notes">${escHtml(v.notes).replace(/\n/g, '<br>')}</p>`
+        : '';
       pushEntry({
         page, date, dateLabel: formatDayLabel(date),
-        html: '<p class="resumen-visita-marker">📍 <strong>Visita</strong></p>',
+        html: `<p class="resumen-visita-marker">📍 <strong>Visita</strong></p>${notesHtml}`,
       });
     });
   });

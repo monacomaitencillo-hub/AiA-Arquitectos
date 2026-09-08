@@ -311,6 +311,13 @@ function initApp() {
   DOM.appBody.classList.remove('hidden');
   DOM.bottomNav.classList.remove('hidden');
 
+  // En el celular el sidebar de Reuniones (secciones/páginas) arranca
+  // oculto por diseño — sin esto, entrar a la app mostraba de entrada el
+  // estado vacío "Seleccioná una página" y había que tocar el ☰ como paso
+  // extra antes de poder elegir algo. En desktop no cambia nada: ahí el
+  // sidebar ya se ve siempre, esta clase no pinta.
+  DOM.wikiSidebar.classList.add('open');
+
   initNavigation();
   initEditorToolbar();
   loadTaskColumnWidths();

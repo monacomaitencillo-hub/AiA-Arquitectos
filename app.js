@@ -2520,6 +2520,7 @@ const planosNotesState = {
   items: [],         // docs de planosPages con parentId === este parentId
   currentPageId: null,
   notesTimer: null,
+  sectionExpanded: {}, // sectionId -> boolean, se resetea por cada parentId nuevo
 };
 
 async function loadPlanosNotesData(entry) {
@@ -2553,6 +2554,7 @@ async function loadPlanosNotesData(entry) {
   planosNotesState.loading = false;
   planosNotesState.loaded = true;
   planosNotesState.currentPageId = null;
+  planosNotesState.sectionExpanded = {};
 
   // Primera vez que se usa esta entrada (todavía no hay ninguna obra
   // copiada): arranca solo con lo que ya existe en Reuniones, para no
@@ -2638,18 +2640,33 @@ function renderPlanosNotesArea(entry, targetContainer) {
         <button class="btn-sm" id="municipal-sync-btn" title="Copiar obras nuevas de Reuniones">🔄</button>
       </div>
       <div class="municipal-sections-list">
-        ${groups.length === 0 ? '<div class="empty-state"><p>No hay secciones accesibles.</p></div>' : groups.map(g => `
+        ${groups.length === 0 ? '<div class="empty-state"><p>No hay secciones accesibles.</p></div>' : groups.map(g => {
+          // La sección que tiene la obra abierta se fuerza desplegada, para
+          // no perder de vista dónde está parado — el resto respeta lo que
+          // el usuario haya plegado/desplegado a mano.
+          if (g.items.some(it => it.id === planosNotesState.currentPageId)) {
+            planosNotesState.sectionExpanded[g.section.id] = true;
+          }
+          const isExpanded = !!planosNotesState.sectionExpanded[g.section.id];
+          return `
           <div class="municipal-section-group">
-            <div class="municipal-section-name" style="border-left-color:${g.section.color || '#1a1a1a'}">${escHtml(g.section.name)}</div>
-            ${g.items.length === 0
-              ? '<div class="municipal-section-empty">Sin obras copiadas todavía</div>'
-              : g.items.map(it => `
-                <div class="municipal-page-item${it.id === planosNotesState.currentPageId ? ' active' : ''}" data-id="${it.id}">
-                  ${escHtml(it.title || 'Sin título')}${(it.files || []).length ? ` <span class="municipal-file-count">📎${it.files.length}</span>` : ''}
-                </div>
-              `).join('')}
+            <button type="button" class="municipal-section-name${isExpanded ? ' expanded' : ''}" data-section-id="${g.section.id}" style="border-left-color:${g.section.color || '#1a1a1a'}">
+              <span class="municipal-section-name-text">${escHtml(g.section.name)}</span>
+              <span class="municipal-section-count">${g.items.length}</span>
+              <span class="municipal-section-chevron">▾</span>
+            </button>
+            <div class="municipal-section-items${isExpanded ? '' : ' hidden'}">
+              ${g.items.length === 0
+                ? '<div class="municipal-section-empty">Sin obras copiadas todavía</div>'
+                : g.items.map(it => `
+                  <div class="municipal-page-item${it.id === planosNotesState.currentPageId ? ' active' : ''}" data-id="${it.id}">
+                    ${escHtml(it.title || 'Sin título')}${(it.files || []).length ? ` <span class="municipal-file-count">📎${it.files.length}</span>` : ''}
+                  </div>
+                `).join('')}
+            </div>
           </div>
-        `).join('')}
+        `;
+        }).join('')}
       </div>
     </div>
     <div class="municipal-editor" id="municipal-editor"></div>
@@ -2660,6 +2677,16 @@ function renderPlanosNotesArea(entry, targetContainer) {
     await syncPlanosNotesPages(entry, false);
     $('municipal-sync-btn').disabled = false;
     renderPlanosNotesArea(entry);
+  });
+
+  container.querySelectorAll('.municipal-section-name').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.sectionId;
+      const expanded = !planosNotesState.sectionExpanded[id];
+      planosNotesState.sectionExpanded[id] = expanded;
+      btn.classList.toggle('expanded', expanded);
+      btn.nextElementSibling.classList.toggle('hidden', !expanded);
+    });
   });
 
   container.querySelectorAll('.municipal-page-item').forEach(el => {

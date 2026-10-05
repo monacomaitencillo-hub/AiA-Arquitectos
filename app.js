@@ -1955,6 +1955,8 @@ const resumenState = {
   sectionGroups: [],  // [{ section, entries: [...] }], en el orden de las secciones
   mode: 'empresa',    // 'empresa' (todo) | 'encargado' (solo obras de una persona)
   encargado: '',       // nombre elegido cuando mode === 'encargado'
+  hiddenEntries: [],   // entradas quitadas con "✓ Listo" (ver resumenEntryKey)
+  showHidden: false,   // "Ver quitados": las muestra abajo para poder devolverlas
 };
 
 // Qué secciones (empresas) están desplegadas en el Resumen — por sectionId,
@@ -1999,7 +2001,12 @@ function stripResolvedContent(html) {
     if (!text && !p.querySelector('img')) p.remove();
   });
 
-  tmp.querySelectorAll('.task-checkbox, .task-encargado, .task-due-date').forEach(el => el.disabled = true);
+  // El casillero de la tarea sí se puede tildar desde el Resumen (ver
+  // resolveResumenTask) — salvo para quien solo puede ver.
+  tmp.querySelectorAll('.task-encargado, .task-due-date').forEach(el => el.disabled = true);
+  if (state.userData.role === 'viewer') {
+    tmp.querySelectorAll('.task-checkbox').forEach(el => el.disabled = true);
+  }
   return tmp.innerHTML;
 }
 
@@ -2035,13 +2042,22 @@ function extractChunkDate(chunk) {
 // fecha, la entrada se ordena al final dentro de su empresa (ver
 // buildResumenData).
 function splitPageIntoEntries(page) {
-  const html = page.content || '';
-  if (!html.trim()) return [];
+  if (!(page.content || '').trim()) return [];
 
+  // Cada tarea se numera (data-ti) según su orden en la página completa,
+  // antes de partirla — así un tilde dado en el Resumen sabe cuál tarea
+  // marcar como resuelta en la página de Reuniones (resolveResumenTask).
+  const annotated = document.createElement('div');
+  annotated.innerHTML = page.content;
+  annotated.querySelectorAll('.task-item').forEach((el, i) => { el.dataset.ti = i; });
+  const html = annotated.innerHTML;
+
+  const ocultos = page.resumenOcultos || [];
   const chunks = html.split(/<hr\s*\/?>/i);
   const entries = [];
 
   chunks.forEach(chunk => {
+    const key = resumenEntryKey(chunk);
     const found = extractChunkDate(chunk);
     let date = null;
     let dateLabel = '';
@@ -2066,10 +2082,23 @@ function splitPageIntoEntries(page) {
       .replace(/\s|&nbsp;/g, '').length === 0;
     if (isEmpty) return;
 
-    entries.push({ date, dateLabel, html: visibleHtml });
+    entries.push({ date, dateLabel, html: visibleHtml, key, hidden: ocultos.includes(key) });
   });
 
   return entries;
+}
+
+// Identifica un bloque (entre <hr>) de una página por su texto, para
+// recordar cuáles se quitaron del Resumen con "✓ Listo" (page.resumenOcultos)
+// sin tocar el contenido de la reunión. Si después alguien cambia el texto
+// de ese bloque, vuelve a aparecer — es justamente algo nuevo para ver.
+function resumenEntryKey(chunkHtml) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = chunkHtml;
+  const text = tmp.textContent.replace(/\s+/g, ' ').trim();
+  let h = 5381;
+  for (let i = 0; i < text.length; i++) h = ((h * 33) ^ text.charCodeAt(i)) >>> 0;
+  return `${h.toString(36)}-${text.length}`;
 }
 
 // Visitas registradas en el módulo Obras para una obra puntual (ver
@@ -2077,12 +2106,14 @@ function splitPageIntoEntries(page) {
 // sourcePageId apunte a esta página de Reuniones (normalmente uno solo).
 // Solo entran las que se tildaron "al Resumen" en Obras (enResumen); las
 // visitas viejas, sin ese campo, quedan afuera hasta que alguien las tilde.
+// Las que se sacaron con "✓ Listo" (enResumen === false) también se
+// devuelven, para poder listarlas en "Ver quitados".
 function getPlanosVisitasForPage(pageId) {
   return state.planosVisitPages
     .filter(pp => pp.sourcePageId === pageId)
     .flatMap(pp => (pp.visitas || [])
-      .filter(v => v.enResumen === true)
-      .map(v => ({ ...v, notes: pp.notes || '' })));
+      .filter(v => v.enResumen === true || v.enResumen === false)
+      .map(v => ({ ...v, notes: pp.notes || '', ppId: pp.id })));
 }
 
 // Groups every dated entry from every accessible section/page by empresa
@@ -2097,6 +2128,7 @@ function buildResumenData(filterEncargado) {
   const sectionById = Object.fromEntries(sections.map(s => [s.id, s]));
   const sectionOrder = new Map(sections.map((s, i) => [s.id, i]));
   const bySection = new Map();
+  const hidden = [];
 
   state.pages.forEach(page => {
     const section = sectionById[page.sectionId];
@@ -2109,6 +2141,10 @@ function buildResumenData(filterEncargado) {
     }
 
     const pushEntry = seg => {
+      if (seg.hidden) {
+        hidden.push({ ...seg, section });
+        return;
+      }
       if (!bySection.has(section.id)) {
         bySection.set(section.id, { section, entries: [] });
       }
@@ -2116,7 +2152,7 @@ function buildResumenData(filterEncargado) {
     };
 
     splitPageIntoEntries(page).forEach(seg => {
-      pushEntry({ page, date: seg.date, dateLabel: seg.dateLabel, html: seg.html });
+      pushEntry({ page, date: seg.date, dateLabel: seg.dateLabel, html: seg.html, key: seg.key, hidden: seg.hidden });
     });
 
     // Visitas a obra (módulo Obras): un punto más, mezclado por fecha con
@@ -2130,7 +2166,7 @@ function buildResumenData(filterEncargado) {
         : '';
       pushEntry({
         page, date, dateLabel: formatDayLabel(date), isVisita: true,
-        html: notesHtml,
+        html: notesHtml, ppId: v.ppId, visitaId: v.id, hidden: v.enResumen === false,
       });
     });
   });
@@ -2154,8 +2190,12 @@ function buildResumenData(filterEncargado) {
   sectionGroups.sort((a, b) =>
     (sectionOrder.get(a.section.id) ?? 0) - (sectionOrder.get(b.section.id) ?? 0)
   );
+  hidden.sort((a, b) =>
+    (sectionOrder.get(a.section.id) ?? 0) - (sectionOrder.get(b.section.id) ?? 0)
+    || (a.page.title || '').localeCompare(b.page.title || '', 'es')
+  );
 
-  return sectionGroups;
+  return { sectionGroups, hidden };
 }
 
 async function loadResumen() {
@@ -2202,7 +2242,9 @@ function renderResumenFilterEncargado() {
 
 function recomputeResumen() {
   const filter = resumenState.mode === 'encargado' ? resumenState.encargado : '';
-  resumenState.sectionGroups = buildResumenData(filter);
+  const { sectionGroups, hidden } = buildResumenData(filter);
+  resumenState.sectionGroups = sectionGroups;
+  resumenState.hiddenEntries = hidden;
   renderResumen();
 }
 
@@ -2213,7 +2255,7 @@ function renderResumen() {
 
   // El estado "vacío" de toda la página solo aplica si ni siquiera hay
   // datos para el modo "por empresa" (sin eso, no hay filtro que mostrar).
-  const hasAnyData = isEncargadoMode ? true : totalEntries > 0;
+  const hasAnyData = isEncargadoMode ? true : (totalEntries > 0 || resumenState.hiddenEntries.length > 0);
   if (!hasAnyData) {
     DOM.resumenEmptyState.classList.remove('hidden');
     DOM.resumenReportContainer.classList.add('hidden');
@@ -2233,22 +2275,33 @@ function renderResumen() {
   }
 
   const titleLabel = isEncargadoMode ? `Obras a cargo de ${resumenState.encargado}` : 'Resumen por empresa';
+  const hiddenCount = resumenState.hiddenEntries.length;
   DOM.resumenTitle.textContent = isEncargadoMode ? `Resumen — ${resumenState.encargado}` : 'Resumen';
   DOM.resumenMeta.textContent = totalEntries
     ? `${totalEntries} entrada${totalEntries === 1 ? '' : 's'} · ${sectionGroups.length} ${sectionGroups.length === 1 ? 'empresa' : 'empresas'}`
     : 'Sin entradas fechadas todavía para esta persona.';
 
-  const sectionsHtml = sectionGroups.map(({ section, entries }) => {
-    const entriesHtml = entries.map(e => `
-      <div class="resumen-entry">
+  const canEdit = state.userData.role !== 'viewer';
+  // Cada entrada lleva los datos para poder sacarla ("✓ Listo") o
+  // devolverla ("↺ Volver") — ver el listener de clicks de DOM.resumenReport.
+  const entryHtml = (e, isHidden) => `
+      <div class="resumen-entry${isHidden ? ' resumen-entry-hidden' : ''}" data-page-id="${e.page.id}"
+        ${e.isVisita ? `data-pp-id="${e.ppId}" data-visita-id="${e.visitaId}"` : `data-key="${e.key}"`}>
         <div class="resumen-entry-meta">
+          ${isHidden ? `<span class="resumen-entry-section">${escHtml(e.section.name)}</span>` : ''}
           <span class="resumen-entry-page"${e.page.titleColor ? ` style="color:${e.page.titleColor}"` : ''}>${escHtml(e.page.title || 'Sin título')}</span>
           ${e.dateLabel ? `<span class="resumen-entry-date">${escHtml(e.dateLabel)}</span>` : ''}
           ${e.isVisita ? `<span class="resumen-visita-marker">📍 Visita</span>` : ''}
+          ${canEdit ? (isHidden
+            ? `<button type="button" class="resumen-entry-toggle" data-action="restore" title="Volver a mostrarla en el Resumen">↺ Volver al resumen</button>`
+            : `<button type="button" class="resumen-entry-toggle" data-action="hide" title="Ya está ok: sacarla del Resumen (no se borra de Reuniones ni de Obras)">✓ Listo</button>`) : ''}
         </div>
         ${e.html ? `<div class="resumen-entry-body">${e.html}</div>` : ''}
       </div>
-    `).join('');
+    `;
+
+  const sectionsHtml = sectionGroups.map(({ section, entries }) => {
+    const entriesHtml = entries.map(e => entryHtml(e, false)).join('');
 
     // Plegada por defecto (ver resumenSectionExpanded más abajo) — con
     // muchas empresas cargadas, tenerlas todas abiertas de entrada obliga
@@ -2275,6 +2328,11 @@ function renderResumen() {
       <div class="resumen-print-sub">Generado el ${generadoLabel}</div>
     </div>
     ${sectionsHtml || `<p class="resumen-empty-filtered">Sin entradas fechadas todavía para esta persona.</p>`}
+    ${hiddenCount ? `
+      <div class="resumen-hidden-block">
+        <button type="button" class="resumen-hidden-toggle">${resumenState.showHidden ? '▾ Ocultar' : '▸ Ver'} quitados (${hiddenCount})</button>
+        ${resumenState.showHidden ? resumenState.hiddenEntries.map(e => entryHtml(e, true)).join('') : ''}
+      </div>` : ''}
   `;
 }
 
@@ -2313,6 +2371,17 @@ document.addEventListener('click', e => {
 // (no cada título) porque renderResumen() rearma todo el HTML de adentro
 // en cada filtro/refresco.
 DOM.resumenReport.addEventListener('click', e => {
+  if (e.target.closest('.resumen-hidden-toggle')) {
+    resumenState.showHidden = !resumenState.showHidden;
+    renderResumen();
+    return;
+  }
+  const toggle = e.target.closest('.resumen-entry-toggle');
+  if (toggle) {
+    toggle.disabled = true;
+    setResumenEntryHidden(toggle.closest('.resumen-entry'), toggle.dataset.action === 'hide');
+    return;
+  }
   const btn = e.target.closest('.resumen-section-title');
   if (!btn) return;
   const id = btn.dataset.sectionId;
@@ -2321,6 +2390,108 @@ DOM.resumenReport.addEventListener('click', e => {
   btn.classList.toggle('expanded', expanded);
   btn.nextElementSibling.classList.toggle('hidden', !expanded);
 });
+
+// Tildar una tarea en el Resumen = tildarla en su página de Reuniones (se
+// tacha allá y desaparece de acá, igual que si se tildara en la reunión).
+DOM.resumenReport.addEventListener('change', e => {
+  const cb = e.target.closest('.task-checkbox');
+  if (!cb) return;
+  const task = cb.closest('.task-item');
+  const entry = cb.closest('.resumen-entry');
+  if (!task || !entry || task.dataset.ti === undefined) return;
+  cb.disabled = true;
+  resolveResumenTask(entry.dataset.pageId, parseInt(task.dataset.ti, 10),
+    task.querySelector('.task-text')?.textContent.trim() || '', cb.checked);
+});
+
+// Si la misma página está abierta en Reuniones con cambios sin guardar,
+// se guardan primero — si no, el autosave pendiente pisaría el cambio
+// hecho desde el Resumen con la versión vieja del editor.
+async function flushAutosaveFor(pageId) {
+  if (state.currentPageId === pageId && DOM.saveIndicator.classList.contains('saving')) {
+    clearTimeout(state.autosaveTimer);
+    await performAutosave();
+  }
+}
+
+// Después de cambiar una página desde el Resumen: actualiza la copia local
+// y, si está abierta en el editor de Reuniones, la recarga ahí también.
+function applyPageContentFromResumen(pageId, content) {
+  const page = state.pages.find(p => p.id === pageId);
+  if (page) page.content = content;
+  if (state.currentPageId === pageId) loadPage(pageId);
+}
+
+async function resolveResumenTask(pageId, ti, text, done) {
+  try {
+    await flushAutosaveFor(pageId);
+    const ref = db.collection('pages').doc(pageId);
+    const snap = await ref.get();
+    const tmp = document.createElement('div');
+    tmp.innerHTML = (snap.exists && snap.data().content) || '';
+    const tasks = [...tmp.querySelectorAll('.task-item')];
+    const textOf = t => t.querySelector('.task-text')?.textContent.trim() || '';
+    // Se busca por posición, pero se confirma por texto: si alguien editó
+    // la página mientras tanto, la posición puede haber cambiado.
+    let task = tasks[ti];
+    if (!task || textOf(task) !== text) task = tasks.find(t => textOf(t) === text);
+    if (!task) throw new Error('no se encontró la tarea en Reuniones (¿la modificaron recién?)');
+
+    task.classList.toggle('task-done', done);
+    task.querySelector('.task-checkbox')?.toggleAttribute('checked', done);
+    const content = tmp.innerHTML;
+    await ref.update({
+      content,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedBy: state.authUser.uid,
+    });
+    applyPageContentFromResumen(pageId, content);
+    toast('Tarea resuelta — se quitó del Resumen.', 'success');
+  } catch (err) {
+    console.error('resolveResumenTask error:', err);
+    toast('No se pudo tildar la tarea: ' + err.message, 'error');
+  }
+  recomputeResumen();
+}
+
+// "✓ Listo" / "↺ Volver al resumen" de una entrada entera. No borra nada:
+// - visita de Obras → se destilda (enResumen: false) en esa obra;
+// - bloque de Reuniones → se anota su clave en page.resumenOcultos.
+async function setResumenEntryHidden(entryEl, hide) {
+  const pageId = entryEl.dataset.pageId;
+  try {
+    if (entryEl.dataset.visitaId) {
+      const pp = state.planosVisitPages.find(x => x.id === entryEl.dataset.ppId);
+      if (!pp) throw new Error('no se encontró la obra');
+      const visitas = (pp.visitas || []).map(v =>
+        v.id === entryEl.dataset.visitaId ? { ...v, enResumen: !hide } : v);
+      await db.collection('planosPages').doc(pp.id).update({
+        visitas, updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      pp.visitas = visitas;
+      // Si Obras ya estaba cargado, que muestre el tilde actualizado.
+      const obra = planosNotesState.items.find(it => it.id === pp.id);
+      if (obra) obra.visitas = visitas;
+    } else {
+      const key = entryEl.dataset.key;
+      const FV = firebase.firestore.FieldValue;
+      await db.collection('pages').doc(pageId).update({
+        resumenOcultos: hide ? FV.arrayUnion(key) : FV.arrayRemove(key),
+      });
+      const page = state.pages.find(p => p.id === pageId);
+      if (page) {
+        const set = new Set(page.resumenOcultos || []);
+        if (hide) set.add(key); else set.delete(key);
+        page.resumenOcultos = [...set];
+      }
+    }
+    toast(hide ? 'Quitado del Resumen.' : 'Devuelto al Resumen.', 'success');
+  } catch (err) {
+    console.error('setResumenEntryHidden error:', err);
+    toast('No se pudo guardar: ' + err.message, 'error');
+  }
+  recomputeResumen();
+}
 
 // Convierte el HTML de una entrada (párrafos sueltos + tareas ☑) a texto
 // plano prolijo — mailto: y el compose de Gmail no soportan HTML, así que

@@ -2117,7 +2117,7 @@ function getPlanosVisitasForPage(pageId) {
 function getResumenVisitasOfObra(pp) {
   return (pp.visitas || [])
     .filter(v => v.enResumen === true || v.enResumen === false)
-    .map(v => ({ ...v, notes: pp.notes || '', ppId: pp.id }));
+    .map(v => ({ ...v, ppId: pp.id }));
 }
 
 // Groups every dated entry from every accessible section/page by empresa
@@ -2127,7 +2127,7 @@ function getResumenVisitasOfObra(pp) {
 // que se usó "Insertar fecha"); cada uno cuenta como una entrada aparte,
 // ordenada cronológicamente dentro de su empresa. Las visitas a obra
 // (getPlanosVisitasForPage) se mezclan ahí mismo, por fecha.
-function buildResumenData(filterEncargado) {
+function buildResumenData(filterEncargado, byObra) {
   const sections = getAccessibleSections();
   const sectionById = Object.fromEntries(sections.map(s => [s.id, s]));
   const sectionOrder = new Map(sections.map((s, i) => [s.id, i]));
@@ -2146,21 +2146,52 @@ function buildResumenData(filterEncargado) {
   };
 
   // Visitas a obra (módulo Obras): un punto más, mezclado por fecha con
-  // el resto de las entradas de esa misma obra. Las notas de esa obra
-  // (mismo campo para toda la obra, no una por visita) se muestran junto
-  // a cada visita para dar contexto de qué se vio ese día.
+  // el resto de las entradas de esa misma obra.
   const pushVisitas = (section, page, visitas) => {
     visitas.forEach(v => {
       const date = parseDateInputValue(v.date);
-      const notesHtml = v.notes && v.notes.trim()
-        ? `<p class="resumen-visita-notes">${escHtml(v.notes).replace(/\n/g, '<br>')}</p>`
-        : '';
       pushEntry(section, {
         page, date, dateLabel: formatDayLabel(date), isVisita: true,
-        html: notesHtml, ppId: v.ppId, visitaId: v.id, hidden: v.enResumen === false,
+        html: '', ppId: v.ppId, visitaId: v.id, hidden: v.enResumen === false,
       });
     });
   };
+
+  // Notas de la obra: solo lo subrayado en Obras ("S Al resumen"), una vez
+  // por obra (no repetido en cada visita). Para sacarlo, se des-subraya.
+  const pushObraNotes = (section, page, pp) => {
+    const parts = getObraUnderlinedNotes(pp);
+    if (!parts.length) return;
+    pushEntry(section, {
+      page, date: null, dateLabel: '', isObraNotes: true,
+      html: `<ul class="resumen-obra-notes">${parts.map(t => `<li>${escHtml(t)}</li>`).join('')}</ul>`,
+    });
+  };
+
+  // "Por obra": solo lo cargado en Obras (visitas tildadas + notas
+  // subrayadas), con una ficha por obra en vez de por empresa.
+  if (byObra) {
+    state.planosVisitPages.forEach(pp => {
+      const section = sectionById[pp.sectionId];
+      if (!section) return;
+      const obraGroup = { id: `obra-${pp.id}`, name: pp.title || 'Sin título', empresa: section.name, color: section.color, empresaOrder: sectionOrder.get(section.id) ?? 0 };
+      const page = { id: `obra-${pp.id}`, title: pp.title, antecedentes: pp.antecedentes };
+      pushVisitas(obraGroup, page, getResumenVisitasOfObra(pp));
+      pushObraNotes(obraGroup, page, pp);
+    });
+    const groups = Array.from(bySection.values());
+    const byEmpresaThenName = (a, b) => (a.section.empresaOrder - b.section.empresaOrder)
+      || (a.section.name || '').localeCompare(b.section.name || '', 'es');
+    groups.forEach(g => g.entries.sort((a, b) => {
+      if (a.date && b.date) return a.date - b.date;
+      if (a.date) return -1;
+      if (b.date) return 1;
+      return 0;
+    }));
+    groups.sort(byEmpresaThenName);
+    hidden.sort(byEmpresaThenName);
+    return { sectionGroups: groups, hidden };
+  }
 
   state.pages.forEach(page => {
     const section = sectionById[page.sectionId];
@@ -2177,6 +2208,9 @@ function buildResumenData(filterEncargado) {
     });
 
     pushVisitas(section, page, getPlanosVisitasForPage(page.id));
+    state.planosVisitPages
+      .filter(pp => pp.sourcePageId === page.id)
+      .forEach(pp => pushObraNotes(section, page, pp));
   });
 
   // Obras que no vienen de una página de Reuniones (agregadas a mano en
@@ -2193,6 +2227,7 @@ function buildResumenData(filterEncargado) {
       }
       const page = { id: `obra-${pp.id}`, title: pp.title, antecedentes: pp.antecedentes };
       pushVisitas(section, page, getResumenVisitasOfObra(pp));
+      pushObraNotes(section, page, pp);
     });
 
   const sectionGroups = Array.from(bySection.values());
@@ -2266,10 +2301,16 @@ function renderResumenFilterEncargado() {
 
 function recomputeResumen() {
   const filter = resumenState.mode === 'encargado' ? resumenState.encargado : '';
-  const { sectionGroups, hidden } = buildResumenData(filter);
+  const { sectionGroups, hidden } = buildResumenData(filter, resumenState.mode === 'obra');
   resumenState.sectionGroups = sectionGroups;
   resumenState.hiddenEntries = hidden;
   renderResumen();
+}
+
+function resumenTitleLabel() {
+  if (resumenState.mode === 'encargado') return `Obras a cargo de ${resumenState.encargado}`;
+  if (resumenState.mode === 'obra') return 'Resumen por obra';
+  return 'Resumen por empresa';
 }
 
 function renderResumen() {
@@ -2279,7 +2320,7 @@ function renderResumen() {
 
   // El estado "vacío" de toda la página solo aplica si ni siquiera hay
   // datos para el modo "por empresa" (sin eso, no hay filtro que mostrar).
-  const hasAnyData = isEncargadoMode ? true : (totalEntries > 0 || resumenState.hiddenEntries.length > 0);
+  const hasAnyData = resumenState.mode !== 'empresa' ? true : (totalEntries > 0 || resumenState.hiddenEntries.length > 0);
   if (!hasAnyData) {
     DOM.resumenEmptyState.classList.remove('hidden');
     DOM.resumenReportContainer.classList.add('hidden');
@@ -2298,12 +2339,17 @@ function renderResumen() {
     return;
   }
 
-  const titleLabel = isEncargadoMode ? `Obras a cargo de ${resumenState.encargado}` : 'Resumen por empresa';
+  const isObraMode = resumenState.mode === 'obra';
+  const titleLabel = resumenTitleLabel();
   const hiddenCount = resumenState.hiddenEntries.length;
-  DOM.resumenTitle.textContent = isEncargadoMode ? `Resumen — ${resumenState.encargado}` : 'Resumen';
-  DOM.resumenMeta.textContent = totalEntries
-    ? `${totalEntries} entrada${totalEntries === 1 ? '' : 's'} · ${sectionGroups.length} ${sectionGroups.length === 1 ? 'empresa' : 'empresas'}`
+  const emptyMsg = isObraMode
+    ? 'Todavía no hay visitas tildadas ni notas subrayadas en Obras.'
     : 'Sin entradas fechadas todavía para esta persona.';
+  DOM.resumenTitle.textContent = isEncargadoMode ? `Resumen — ${resumenState.encargado}` : (isObraMode ? 'Resumen de obras' : 'Resumen');
+  const groupWord = isObraMode ? ['obra', 'obras'] : ['empresa', 'empresas'];
+  DOM.resumenMeta.textContent = totalEntries
+    ? `${totalEntries} entrada${totalEntries === 1 ? '' : 's'} · ${sectionGroups.length} ${groupWord[sectionGroups.length === 1 ? 0 : 1]}`
+    : emptyMsg;
 
   const canEdit = state.userData.role !== 'viewer';
   // Cada entrada lleva los datos para poder sacarla ("✓ Listo") o
@@ -2313,10 +2359,11 @@ function renderResumen() {
         ${e.isVisita ? `data-pp-id="${e.ppId}" data-visita-id="${e.visitaId}"` : `data-key="${e.key}"`}>
         <div class="resumen-entry-meta">
           ${isHidden ? `<span class="resumen-entry-section">${escHtml(e.section.name)}</span>` : ''}
-          <span class="resumen-entry-page"${e.page.titleColor ? ` style="color:${e.page.titleColor}"` : ''}>${escHtml(e.page.title || 'Sin título')}</span>
+          ${isObraMode ? '' : `<span class="resumen-entry-page"${e.page.titleColor ? ` style="color:${e.page.titleColor}"` : ''}>${escHtml(e.page.title || 'Sin título')}</span>`}
           ${e.dateLabel ? `<span class="resumen-entry-date">${escHtml(e.dateLabel)}</span>` : ''}
           ${e.isVisita ? `<span class="resumen-visita-marker">📍 Visita</span>` : ''}
-          ${canEdit ? (isHidden
+          ${e.isObraNotes ? `<span class="resumen-obra-notes-marker">📝 Notas de obra</span>` : ''}
+          ${canEdit && !e.isObraNotes ? (isHidden
             ? `<button type="button" class="resumen-entry-toggle" data-action="restore" title="Volver a mostrarla en el Resumen">↺ Volver al resumen</button>`
             : `<button type="button" class="resumen-entry-toggle" data-action="hide" title="Ya está ok: sacarla del Resumen (no se borra de Reuniones ni de Obras)">✓ Listo</button>`) : ''}
         </div>
@@ -2337,6 +2384,7 @@ function renderResumen() {
         <button type="button" class="resumen-section-title${isExpanded ? ' expanded' : ''}" data-section-id="${section.id}" style="border-color:${section.color || '#1a1a1a'}">
           <span class="resumen-section-dot" style="background:${section.color || '#1a1a1a'}"></span>
           <span class="resumen-section-name">${escHtml(section.name)}</span>
+          ${section.empresa ? `<span class="resumen-section-empresa">${escHtml(section.empresa)}</span>` : ''}
           <span class="resumen-section-count">${entries.length}</span>
           <span class="resumen-section-chevron">▾</span>
         </button>
@@ -2351,7 +2399,7 @@ function renderResumen() {
       <h1 class="resumen-print-title">${escHtml(titleLabel)}</h1>
       <div class="resumen-print-sub">Generado el ${generadoLabel}</div>
     </div>
-    ${sectionsHtml || `<p class="resumen-empty-filtered">Sin entradas fechadas todavía para esta persona.</p>`}
+    ${sectionsHtml || `<p class="resumen-empty-filtered">${emptyMsg}</p>`}
     ${hiddenCount ? `
       <div class="resumen-hidden-block">
         <button type="button" class="resumen-hidden-toggle">${resumenState.showHidden ? '▾ Ocultar' : '▸ Ver'} quitados (${hiddenCount})</button>
@@ -2555,6 +2603,16 @@ function entryHtmlToPlainText(html) {
       return;
     }
 
+    // Notas subrayadas de una obra (<ul class="resumen-obra-notes">): una
+    // viñeta por renglón, igual que las tareas.
+    if (node.classList.contains('resumen-obra-notes')) {
+      node.querySelectorAll('li').forEach(li => {
+        const text = li.textContent.replace(/\s+/g, ' ').trim();
+        if (text) lines.push(`  • ${text}`);
+      });
+      return;
+    }
+
     if (node.querySelector('.task-item')) {
       Array.from(node.childNodes).forEach(walk);
     } else {
@@ -2572,19 +2630,19 @@ function entryHtmlToPlainText(html) {
 // plano del HTML renderizado — eso perdía toda separación entre
 // secciones y entradas.
 function buildResumenPlainText() {
-  const isEncargadoMode = resumenState.mode === 'encargado';
-  const titleLabel = isEncargadoMode ? `Obras a cargo de ${resumenState.encargado}` : 'Resumen por empresa';
+  const titleLabel = resumenTitleLabel();
   const generadoLabel = new Date().toLocaleDateString('es-AR', { year: 'numeric', month: 'long', day: 'numeric' });
 
   const lines = ['AIA ARQUITECTOS', titleLabel, `Generado el ${generadoLabel}`, ''];
 
   resumenState.sectionGroups.forEach(({ section, entries }) => {
     lines.push('='.repeat(40));
-    lines.push((section.name || '').toUpperCase());
+    lines.push((section.name || '').toUpperCase() + (section.empresa ? ` (${section.empresa})` : ''));
     lines.push('='.repeat(40));
     entries.forEach(e => {
       lines.push('');
-      lines.push([e.page.title || 'Sin título', e.dateLabel, e.isVisita ? '📍 Visita' : null].filter(Boolean).join(' — '));
+      lines.push([resumenState.mode === 'obra' ? null : (e.page.title || 'Sin título'), e.dateLabel,
+        e.isVisita ? '📍 Visita' : null, e.isObraNotes ? '📝 Notas de obra' : null].filter(Boolean).join(' — '));
       const body = entryHtmlToPlainText(e.html);
       if (body) lines.push(body);
     });
@@ -2608,7 +2666,7 @@ function buildResumenEmailPayload(limit) {
   const isEncargadoMode = resumenState.mode === 'encargado';
   const subject = isEncargadoMode
     ? `Resumen de obras — ${resumenState.encargado}`
-    : 'Resumen por empresa';
+    : resumenTitleLabel();
 
   let body = buildResumenPlainText();
   if (!body) {
@@ -3159,10 +3217,11 @@ function renderPlanosNotesEditor() {
             </div>
           </div>
         </span>
+        ${canEdit ? '<button type="button" class="btn-sm" id="municipal-underline-btn" title="Subrayar lo seleccionado: solo lo subrayado va al Resumen (volver a apretar para sacarlo)"><u>S</u> Al resumen</button>' : ''}
         ${canEdit ? '<button type="button" class="btn-sm" id="municipal-insert-date-btn">📅 Fecha</button>' : ''}
       </span>
     </div>
-    <textarea id="municipal-notes" placeholder="Notas..." ${canEdit ? '' : 'disabled'}>${escHtml(item.notes || '')}</textarea>
+    <div id="municipal-notes" class="${canEdit ? '' : 'is-disabled'}" contenteditable="${canEdit ? 'true' : 'false'}" data-placeholder="Notas... (seleccioná un texto y apretá «S Al resumen» para que vaya al Resumen)">${getObraNotesHtml(item)}</div>
     <div class="municipal-files">
       <div class="municipal-files-header">
         <span>Archivos</span>
@@ -3238,11 +3297,37 @@ function renderPlanosNotesEditor() {
   });
 
   const notesEl = $('municipal-notes');
-  notesEl.addEventListener('input', () => {
+  const scheduleNotesSave = () => {
     clearTimeout(planosNotesState.notesTimer);
-    planosNotesState.notesTimer = setTimeout(() => savePlanosNotesText(item.id, notesEl.value), 1000);
+    planosNotesState.notesTimer = setTimeout(() => savePlanosNotesText(item.id, notesEl), 1000);
+  };
+  notesEl.addEventListener('input', scheduleNotesSave);
+
+  // Pegar siempre como texto plano: si no, se cuela el formato de donde se
+  // copió (otros subrayados, tamaños, tablas) y ensucia lo que va al Resumen.
+  notesEl.addEventListener('paste', e => {
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+    document.execCommand('insertText', false, text);
   });
 
+  // "S Al resumen": subraya (o des-subraya) la selección. Lo subrayado es lo
+  // único de las notas que sale en el Resumen (ver getObraUnderlinedNotes).
+  // mousedown + preventDefault para no perder la selección al hacer click.
+  const underlineBtn = $('municipal-underline-btn');
+  underlineBtn?.addEventListener('mousedown', e => e.preventDefault());
+  underlineBtn?.addEventListener('click', () => {
+    const sel = window.getSelection();
+    if (!sel.rangeCount || sel.isCollapsed || !notesEl.contains(sel.anchorNode)) {
+      toast('Seleccioná primero el texto que querés mandar al Resumen.', 'info');
+      return;
+    }
+    document.execCommand('styleWithCSS', false, false);
+    document.execCommand('underline');
+    scheduleNotesSave();
+  });
+
+  $('municipal-insert-date-btn')?.addEventListener('mousedown', e => e.preventDefault());
   $('municipal-insert-date-btn')?.addEventListener('click', () => openInsertNotesDateModal(notesEl));
 
   $('municipal-add-link-btn')?.addEventListener('click', () => {
@@ -3303,9 +3388,13 @@ function dropboxRawLinkUrl(rawUrl) {
 // como en Reuniones) en el textarea de notas, en la posición del cursor
 // — un campo de texto simple no tiene botón de "insertar fecha" propio
 // como el editor de Reuniones, así que se arma acá con el mismo formato.
-function openInsertNotesDateModal(textareaEl) {
-  const start = textareaEl.selectionStart ?? textareaEl.value.length;
-  const end = textareaEl.selectionEnd ?? textareaEl.value.length;
+function openInsertNotesDateModal(notesEl) {
+  // Se guarda dónde estaba el cursor antes de abrir el modal (al hacer
+  // foco en el calendario se pierde); si no estaba adentro de las notas,
+  // la fecha va al final.
+  const sel = window.getSelection();
+  let range = sel.rangeCount && notesEl.contains(sel.getRangeAt(0).commonAncestorContainer)
+    ? sel.getRangeAt(0).cloneRange() : null;
 
   openModal({
     title: 'Insertar fecha',
@@ -3327,18 +3416,20 @@ function openInsertNotesDateModal(textareaEl) {
     if (!dateValue) return;
 
     const label = formatDayLabel(parseDateInputValue(dateValue));
-    const before = textareaEl.value.slice(0, start);
-    const after = textareaEl.value.slice(end);
-    const prefix = before && !before.endsWith('\n') ? '\n' : '';
-    const suffix = after && !after.startsWith('\n') ? '\n' : '';
-    const insert = `${prefix}${label}\n${suffix}`;
-
-    textareaEl.value = before + insert + after;
-    const caret = (before + insert).length;
     closeModal();
-    textareaEl.focus();
-    textareaEl.setSelectionRange(caret, caret);
-    textareaEl.dispatchEvent(new Event('input', { bubbles: true }));
+    notesEl.focus();
+    if (!range) {
+      range = document.createRange();
+      range.selectNodeContents(notesEl);
+      range.collapse(false);
+    }
+    const s = window.getSelection();
+    s.removeAllRanges();
+    s.addRange(range);
+    // Sin subrayado: la fecha es un rótulo, no algo para el Resumen.
+    if (document.queryCommandState('underline')) document.execCommand('underline');
+    document.execCommand('insertHTML', false, `<div>${escHtml(label)}</div><div><br></div>`);
+    notesEl.dispatchEvent(new Event('input', { bubbles: true }));
   });
 }
 
@@ -3419,12 +3510,16 @@ function openAddDropboxLinkModal(onAdd) {
   });
 }
 
-async function savePlanosNotesText(pageId, notes) {
+// Las notas se guardan como HTML (notesHtml, para conservar lo subrayado)
+// y además como texto plano (notes), que es lo que tenían las obras viejas.
+async function savePlanosNotesText(pageId, notesEl) {
+  const notesHtml = notesEl.innerHTML;
+  const notes = notesEl.innerText;
   const item = planosNotesState.items.find(it => it.id === pageId);
-  if (item) item.notes = notes;
+  if (item) { item.notes = notes; item.notesHtml = notesHtml; }
   try {
     await db.collection('planosPages').doc(pageId).update({
-      notes, updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      notes, notesHtml, updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
   } catch (err) {
     console.error('savePlanosNotesText error:', err);
@@ -3451,6 +3546,48 @@ async function deletePlanosNotesFile(pageId, index) {
     console.error('deletePlanosNotesFile error:', err);
     toast('Error al eliminar el archivo: ' + err.message, 'error');
   }
+}
+
+// HTML de las notas de una obra: las nuevas tienen notesHtml; las viejas
+// solo texto plano (de cuando era un <textarea>), que se pasa a HTML.
+function getObraNotesHtml(pp) {
+  if (pp.notesHtml != null) return pp.notesHtml;
+  return escHtml(pp.notes || '').replace(/\n/g, '<br>');
+}
+
+// Los pedazos subrayados de las notas de una obra, en orden — es lo único
+// de las notas que va al Resumen. Pedazos subrayados pegados entre sí
+// (p.ej. por haber subrayado en dos pasadas) se juntan en uno solo.
+function getObraUnderlinedNotes(pp) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = getObraNotesHtml(pp);
+  const isUnderlined = el => el.tagName === 'U' || /underline/.test(el.style?.textDecoration || el.style?.textDecorationLine || '');
+  const parts = [];
+  let current = '';
+  let lastWasU = false;
+  const walk = (node, inU) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent;
+      if (inU) {
+        current += text;
+        lastWasU = true;
+      } else if (text.trim()) {
+        if (current.trim()) parts.push(current.trim());
+        current = '';
+        lastWasU = false;
+      }
+      return;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    const block = /^(DIV|P|BR|LI|H[1-6])$/.test(node.tagName);
+    if (block && current.trim()) { parts.push(current.trim()); current = ''; }
+    const u = inU || isUnderlined(node);
+    node.childNodes.forEach(c => walk(c, u));
+    if (block && current.trim()) { parts.push(current.trim()); current = ''; }
+  };
+  tmp.childNodes.forEach(c => walk(c, false));
+  if (current.trim()) parts.push(current.trim());
+  return parts.map(p => p.replace(/\s+/g, ' '));
 }
 
 function formatDDMMYYYY(dateStr) {

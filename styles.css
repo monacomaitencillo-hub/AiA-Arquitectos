@@ -871,9 +871,17 @@ input[type="date"] { -webkit-appearance: none; appearance: none; }
 .municipal-visitas-list { display: flex; flex-wrap: wrap; gap: 6px; }
 .municipal-visita-tag {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 4px 4px 4px 10px; border-radius: 99px; font-size: 12px; font-weight: 600;
-  background: var(--accent-light); color: var(--accent);
+  padding: 4px 4px 4px 8px; border-radius: 99px; font-size: 12px; font-weight: 600;
+  background: var(--sidebar-bg); color: #6b7280;
+  border: 1px solid var(--border);
 }
+.municipal-visita-tag.in-resumen {
+  background: var(--accent-light); color: var(--accent); border-color: var(--accent);
+}
+.municipal-visita-check { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+.municipal-visita-check input { margin: 0; cursor: pointer; accent-color: var(--accent); }
+.municipal-visita-check input:disabled { cursor: default; }
+.municipal-visitas-hint { margin: 6px 0 0; font-size: 11px; color: var(--text-muted); }
 .municipal-visita-remove {
   border: none; background: transparent; color: inherit; opacity: .6;
   font-size: 13px; line-height: 1; cursor: pointer; padding: 2px 4px;

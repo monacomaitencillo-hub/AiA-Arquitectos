@@ -2075,10 +2075,14 @@ function splitPageIntoEntries(page) {
 // Visitas registradas en el módulo Obras para una obra puntual (ver
 // addPlanosVisita) — se juntan las de todos los docs de planosPages cuyo
 // sourcePageId apunte a esta página de Reuniones (normalmente uno solo).
+// Solo entran las que se tildaron "al Resumen" en Obras (enResumen); las
+// visitas viejas, sin ese campo, quedan afuera hasta que alguien las tilde.
 function getPlanosVisitasForPage(pageId) {
   return state.planosVisitPages
     .filter(pp => pp.sourcePageId === pageId)
-    .flatMap(pp => (pp.visitas || []).map(v => ({ ...v, notes: pp.notes || '' })));
+    .flatMap(pp => (pp.visitas || [])
+      .filter(v => v.enResumen === true)
+      .map(v => ({ ...v, notes: pp.notes || '' })));
 }
 
 // Groups every dated entry from every accessible section/page by empresa
@@ -2917,12 +2921,16 @@ function renderPlanosNotesEditor() {
         ? '<p class="ant-empty-hint">Sin visitas registradas</p>'
         : `<div class="municipal-visitas-list">
             ${visitas.map(v => `
-              <span class="municipal-visita-tag" data-id="${v.id}">
-                📍 ${escHtml(formatDDMMYYYY(v.date))}
+              <span class="municipal-visita-tag${v.enResumen ? ' in-resumen' : ''}" data-id="${v.id}">
+                <label class="municipal-visita-check" title="${v.enResumen ? 'Va al Resumen — destildar para sacarla' : 'Tildar para que vaya al Resumen'}">
+                  <input type="checkbox" class="municipal-visita-resumen" data-id="${v.id}" ${v.enResumen ? 'checked' : ''} ${canEdit ? '' : 'disabled'} />
+                  📍 ${escHtml(formatDDMMYYYY(v.date))}
+                </label>
                 ${canEdit ? `<button type="button" class="municipal-visita-remove" data-id="${v.id}" title="Eliminar">×</button>` : ''}
               </span>
             `).join('')}
-          </div>`}
+          </div>
+          <p class="municipal-visitas-hint">Tildá las visitas que tienen que ir al Resumen para imprimir.</p>`}
     </div>
     <div class="municipal-notes-header">
       <span>Notas</span>
@@ -3028,6 +3036,10 @@ function renderPlanosNotesEditor() {
       const visita = (item.visitas || []).find(v => v.id === btn.dataset.id);
       if (visita) deletePlanosVisita(item.id, visita);
     });
+  });
+
+  editor.querySelectorAll('.municipal-visita-resumen').forEach(cb => {
+    cb.addEventListener('change', () => setPlanosVisitaEnResumen(item.id, cb.dataset.id, cb.checked));
   });
 
   const notesEl = $('municipal-notes');
@@ -3270,6 +3282,29 @@ async function addPlanosVisita(pageId) {
   } catch (err) {
     console.error('addPlanosVisita error:', err);
     toast('Error al registrar la visita: ' + err.message, 'error');
+  }
+}
+
+// Marca/desmarca una visita para el Resumen (ver getPlanosVisitasForPage).
+// Las visitas viven en un array dentro del doc, y Firestore no deja
+// cambiar un campo de un elemento suelto — se reescribe el array entero.
+async function setPlanosVisitaEnResumen(pageId, visitaId, enResumen) {
+  const item = planosNotesState.items.find(it => it.id === pageId);
+  if (!item) return;
+  const prev = item.visitas || [];
+  const visitas = prev.map(v => v.id === visitaId ? { ...v, enResumen } : v);
+  item.visitas = visitas;
+  renderPlanosNotesEditor();
+  try {
+    await db.collection('planosPages').doc(pageId).update({
+      visitas,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (err) {
+    console.error('setPlanosVisitaEnResumen error:', err);
+    toast('Error al guardar: ' + err.message, 'error');
+    item.visitas = prev;
+    renderPlanosNotesEditor();
   }
 }
 

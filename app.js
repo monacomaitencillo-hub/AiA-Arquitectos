@@ -2111,9 +2111,13 @@ function resumenEntryKey(chunkHtml) {
 function getPlanosVisitasForPage(pageId) {
   return state.planosVisitPages
     .filter(pp => pp.sourcePageId === pageId)
-    .flatMap(pp => (pp.visitas || [])
-      .filter(v => v.enResumen === true || v.enResumen === false)
-      .map(v => ({ ...v, notes: pp.notes || '', ppId: pp.id })));
+    .flatMap(getResumenVisitasOfObra);
+}
+
+function getResumenVisitasOfObra(pp) {
+  return (pp.visitas || [])
+    .filter(v => v.enResumen === true || v.enResumen === false)
+    .map(v => ({ ...v, notes: pp.notes || '', ppId: pp.id }));
 }
 
 // Groups every dated entry from every accessible section/page by empresa
@@ -2130,6 +2134,34 @@ function buildResumenData(filterEncargado) {
   const bySection = new Map();
   const hidden = [];
 
+  const pushEntry = (section, seg) => {
+    if (seg.hidden) {
+      hidden.push({ ...seg, section });
+      return;
+    }
+    if (!bySection.has(section.id)) {
+      bySection.set(section.id, { section, entries: [] });
+    }
+    bySection.get(section.id).entries.push(seg);
+  };
+
+  // Visitas a obra (módulo Obras): un punto más, mezclado por fecha con
+  // el resto de las entradas de esa misma obra. Las notas de esa obra
+  // (mismo campo para toda la obra, no una por visita) se muestran junto
+  // a cada visita para dar contexto de qué se vio ese día.
+  const pushVisitas = (section, page, visitas) => {
+    visitas.forEach(v => {
+      const date = parseDateInputValue(v.date);
+      const notesHtml = v.notes && v.notes.trim()
+        ? `<p class="resumen-visita-notes">${escHtml(v.notes).replace(/\n/g, '<br>')}</p>`
+        : '';
+      pushEntry(section, {
+        page, date, dateLabel: formatDayLabel(date), isVisita: true,
+        html: notesHtml, ppId: v.ppId, visitaId: v.id, hidden: v.enResumen === false,
+      });
+    });
+  };
+
   state.pages.forEach(page => {
     const section = sectionById[page.sectionId];
     if (!section) return; // sección no accesible para este usuario
@@ -2140,36 +2172,28 @@ function buildResumenData(filterEncargado) {
       return;
     }
 
-    const pushEntry = seg => {
-      if (seg.hidden) {
-        hidden.push({ ...seg, section });
+    splitPageIntoEntries(page).forEach(seg => {
+      pushEntry(section, { page, date: seg.date, dateLabel: seg.dateLabel, html: seg.html, key: seg.key, hidden: seg.hidden });
+    });
+
+    pushVisitas(section, page, getPlanosVisitasForPage(page.id));
+  });
+
+  // Obras que no vienen de una página de Reuniones (agregadas a mano en
+  // Obras, o cuya reunión se borró): sus visitas tildadas igual tienen que
+  // salir, bajo su empresa y con el nombre que tienen en Obras.
+  const pageIds = new Set(state.pages.map(p => p.id));
+  state.planosVisitPages
+    .filter(pp => !pp.sourcePageId || !pageIds.has(pp.sourcePageId))
+    .forEach(pp => {
+      const section = sectionById[pp.sectionId];
+      if (!section) return;
+      if (filterEncargado && !normalizeAntecedentes(pp.antecedentes).encargados.includes(filterEncargado)) {
         return;
       }
-      if (!bySection.has(section.id)) {
-        bySection.set(section.id, { section, entries: [] });
-      }
-      bySection.get(section.id).entries.push(seg);
-    };
-
-    splitPageIntoEntries(page).forEach(seg => {
-      pushEntry({ page, date: seg.date, dateLabel: seg.dateLabel, html: seg.html, key: seg.key, hidden: seg.hidden });
+      const page = { id: `obra-${pp.id}`, title: pp.title, antecedentes: pp.antecedentes };
+      pushVisitas(section, page, getResumenVisitasOfObra(pp));
     });
-
-    // Visitas a obra (módulo Obras): un punto más, mezclado por fecha con
-    // el resto de las entradas de esa misma obra. Las notas de esa obra
-    // (mismo campo para toda la obra, no una por visita) se muestran junto
-    // a cada visita para dar contexto de qué se vio ese día.
-    getPlanosVisitasForPage(page.id).forEach(v => {
-      const date = parseDateInputValue(v.date);
-      const notesHtml = v.notes && v.notes.trim()
-        ? `<p class="resumen-visita-notes">${escHtml(v.notes).replace(/\n/g, '<br>')}</p>`
-        : '';
-      pushEntry({
-        page, date, dateLabel: formatDayLabel(date), isVisita: true,
-        html: notesHtml, ppId: v.ppId, visitaId: v.id, hidden: v.enResumen === false,
-      });
-    });
-  });
 
   const sectionGroups = Array.from(bySection.values());
   sectionGroups.forEach(g => {
